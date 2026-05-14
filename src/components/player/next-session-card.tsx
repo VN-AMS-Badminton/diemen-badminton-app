@@ -8,19 +8,27 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { RsvpAction } from "@/components/player/rsvp-actions";
+import { RsvpTransferDialog } from "@/components/player/rsvp-transfer-dialog";
 import { PaymentBlock } from "@/components/player/payment-block";
 import { getPaymentContext } from "@/lib/sessions/get-payment-context";
 import { formatDate, formatWeekday } from "@/lib/format";
 import type { NextSessionData } from "@/lib/sessions/get-next-session";
 
+interface TransferPlayer {
+  id: string;
+  username: string;
+}
+
 export function NextSessionCard({
   data,
   username,
   subscriptionRow,
+  transferablePlayers,
 }: {
   data: NextSessionData | null;
   username: string;
   subscriptionRow: { id: string; status: string } | null;
+  transferablePlayers: TransferPlayer[];
 }) {
   if (!data) {
     return (
@@ -62,6 +70,12 @@ export function NextSessionCard({
               label="Can't make it"
               variant="outline"
             />
+            {transferablePlayers.length > 0 && (
+              <RsvpTransferDialog
+                sessionId={session.id}
+                players={transferablePlayers}
+              />
+            )}
           </>
         )}
 
@@ -115,6 +129,12 @@ export function NextSessionCard({
                 label="Cancel RSVP"
                 variant="outline"
               />
+              {transferablePlayers.length > 0 && (
+                <RsvpTransferDialog
+                  sessionId={session.id}
+                  players={transferablePlayers}
+                />
+              )}
             </>
           )}
 

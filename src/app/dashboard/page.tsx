@@ -11,10 +11,16 @@ export default async function DashboardPage() {
   const session = await requireSession();
   const sb = createServerSupabase();
 
-  const [{ data: player }, next, poll] = await Promise.all([
+  const [{ data: player }, next, poll, { data: activePlayers }] = await Promise.all([
     sb.from("players").select("*").eq("id", session.sub).maybeSingle(),
     getNextSession(session.sub),
     getActivePoll(),
+    sb
+      .from("players")
+      .select("id, username")
+      .eq("status", "active")
+      .neq("id", session.sub)
+      .order("username"),
   ]);
 
   if (!player) {
@@ -83,6 +89,7 @@ export default async function DashboardPage() {
                 .then((r) => r.data ?? null)
             : null
         }
+        transferablePlayers={activePlayers ?? []}
       />
 
       <nav className="flex flex-col gap-2 pt-4 text-sm">

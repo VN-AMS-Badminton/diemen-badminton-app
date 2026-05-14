@@ -9,6 +9,7 @@ import {
   PaymentRowActions,
   BulkConfirmButton,
 } from "@/components/admin/payment-row-actions";
+import { AttendanceTransferButton } from "@/components/admin/attendance-transfer-button";
 import { SessionTikkieUrlForm } from "@/components/admin/session-tikkie-url-form";
 import { formatDate } from "@/lib/format";
 
@@ -28,18 +29,22 @@ export default async function AdminSessionDetail({ params }: Props) {
 
   type R = {
     id: string;
+    player_id: string;
     source: string;
     rsvp_status: string;
     payment_status: string;
     players: { username: string; whatsapp_number: string } | null;
   };
-  const { data } = await sb
-    .from("attendance")
-    .select(
-      "id, source, rsvp_status, payment_status, players:player_id(username, whatsapp_number)",
-    )
-    .eq("session_id", id)
-    .order("rsvp_status", { ascending: true });
+  const [{ data }, { data: allPlayers }] = await Promise.all([
+    sb
+      .from("attendance")
+      .select(
+        "id, player_id, source, rsvp_status, payment_status, players:player_id(username, whatsapp_number)",
+      )
+      .eq("session_id", id)
+      .order("rsvp_status", { ascending: true }),
+    sb.from("players").select("id, username").eq("status", "active").order("username"),
+  ]);
   const rows = (data ?? []) as unknown as R[];
 
   const confirmed = rows.filter((r) => r.rsvp_status === "in").length;
@@ -98,53 +103,67 @@ export default async function AdminSessionDetail({ params }: Props) {
                 </TR>
               </THead>
               <TBody>
-                {rows.map((r) => (
-                  <TR key={r.id}>
-                    <TD>
-                      <div className="font-medium">{r.players?.username}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {r.players?.whatsapp_number}
-                      </div>
-                    </TD>
-                    <TD>{r.source}</TD>
-                    <TD>
-                      <Badge
-                        variant={
-                          r.rsvp_status === "in"
-                            ? "success"
-                            : r.rsvp_status === "opted_out"
-                              ? "secondary"
-                              : "outline"
-                        }
-                      >
-                        {r.rsvp_status}
-                      </Badge>
-                    </TD>
-                    <TD>
-                      <Badge
-                        variant={
-                          r.payment_status === "admin_confirmed"
-                            ? "success"
-                            : r.payment_status === "self_marked_paid"
-                              ? "warning"
-                              : r.payment_status === "owed"
-                                ? "destructive"
+                {rows.map((r) => {
+                  const transferCandidates = (allPlayers ?? []).filter(
+                    (p) => p.id !== r.player_id,
+                  );
+                  return (
+                    <TR key={r.id}>
+                      <TD>
+                        <div className="font-medium">{r.players?.username}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {r.players?.whatsapp_number}
+                        </div>
+                      </TD>
+                      <TD>{r.source}</TD>
+                      <TD>
+                        <Badge
+                          variant={
+                            r.rsvp_status === "in"
+                              ? "success"
+                              : r.rsvp_status === "opted_out"
+                                ? "secondary"
                                 : "outline"
-                        }
-                      >
-                        {r.payment_status}
-                      </Badge>
-                    </TD>
-                    <TD>
-                      {r.payment_status !== "n_a" && (
-                        <PaymentRowActions
-                          attendanceId={r.id}
-                          currentStatus={r.payment_status}
-                        />
-                      )}
-                    </TD>
-                  </TR>
-                ))}
+                          }
+                        >
+                          {r.rsvp_status}
+                        </Badge>
+                      </TD>
+                      <TD>
+                        <Badge
+                          variant={
+                            r.payment_status === "admin_confirmed"
+                              ? "success"
+                              : r.payment_status === "self_marked_paid"
+                                ? "warning"
+                                : r.payment_status === "owed"
+                                  ? "destructive"
+                                  : "outline"
+                          }
+                        >
+                          {r.payment_status}
+                        </Badge>
+                      </TD>
+                      <TD className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {r.payment_status !== "n_a" && (
+                            <PaymentRowActions
+                              attendanceId={r.id}
+                              currentStatus={r.payment_status}
+                            />
+                          )}
+                          {r.rsvp_status === "in" && transferCandidates.length > 0 && (
+                            <AttendanceTransferButton
+                              attendanceId={r.id}
+                              fromUsername={r.players?.username ?? ""}
+                              players={transferCandidates}
+                            />
+                          )}
+                        </div>
+                      </TD>
+                    </TR>
+                  );
+                })}
               </TBody>
             </Table>
           )}
