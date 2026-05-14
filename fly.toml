@@ -8,6 +8,14 @@ primary_region = 'ams'
 
 [build]
 
+# NEXT_PUBLIC_* args MUST be supplied per-deploy with `--build-arg`
+# (values aren't committed). Lists them here so Fly's remote builder
+# forwards them to the Docker BuildKit stage.
+[build.args]
+  NEXT_PUBLIC_SUPABASE_URL = ""
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = ""
+  NEXT_PUBLIC_APP_URL = ""
+
 [env]
   NODE_ENV = 'production'
   PORT = '3000'
