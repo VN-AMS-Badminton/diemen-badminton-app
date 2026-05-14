@@ -1,0 +1,111 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { createServerSupabase } from "@/lib/supabase/server";
+import { requireSession } from "@/lib/auth/get-session";
+
+const schema = z.object({
+  sessionId: z.string().uuid(),
+  action: z.enum(["opt_out", "opt_in", "drop_in_rsvp", "drop_in_cancel"]),
+});
+
+export async function POST(req: Request) {
+  const session = await requireSession();
+  const body = await req.json().catch(() => null);
+  const parsed = schema.safeParse(body);
+  if (!parsed.success)
+    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+
+  const { sessionId, action } = parsed.data;
+  const sb = createServerSupabase();
+
+  const { data: sess } = await sb
+    .from("sessions")
+    .select("*")
+    .eq("id", sessionId)
+    .maybeSingle();
+  if (!sess) return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  if (sess.status !== "scheduled")
+    return NextResponse.json({ error: "Session is not open" }, { status: 400 });
+
+  const sessionDate = new Date(sess.date + "T23:59:59Z");
+  if (sessionDate.getTime() < Date.now()) {
+    return NextResponse.json({ error: "Session is in the past" }, { status: 400 });
+  }
+
+  const { data: existing } = await sb
+    .from("attendance")
+    .select("*")
+    .eq("session_id", sessionId)
+    .eq("player_id", session.sub)
+    .maybeSingle();
+
+  if (action === "opt_out") {
+    if (!existing || existing.source !== "subscription")
+      return NextResponse.json({ error: "Not a subscriber slot" }, { status: 400 });
+    await sb
+      .from("attendance")
+      .update({ rsvp_status: "opted_out" })
+      .eq("id", existing.id);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "opt_in") {
+    if (!existing || existing.source !== "subscription")
+      return NextResponse.json({ error: "Not a subscriber slot" }, { status: 400 });
+    // Capacity check: only re-opt-in if slot still free.
+    const { count } = await sb
+      .from("attendance")
+      .select("id", { count: "exact", head: true })
+      .eq("session_id", sessionId)
+      .eq("rsvp_status", "in");
+    if ((count ?? 0) >= sess.capacity) {
+      return NextResponse.json({ error: "Session is full" }, { status: 409 });
+    }
+    await sb
+      .from("attendance")
+      .update({ rsvp_status: "in" })
+      .eq("id", existing.id);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "drop_in_rsvp") {
+    // Capacity check.
+    const { count } = await sb
+      .from("attendance")
+      .select("id", { count: "exact", head: true })
+      .eq("session_id", sessionId)
+      .eq("rsvp_status", "in");
+    if ((count ?? 0) >= sess.capacity)
+      return NextResponse.json({ error: "Session is full" }, { status: 409 });
+
+    if (existing) {
+      await sb
+        .from("attendance")
+        .update({ rsvp_status: "in", source: "drop_in", payment_status: "owed" })
+        .eq("id", existing.id);
+      return NextResponse.json({ ok: true });
+    }
+    const { error } = await sb.from("attendance").insert({
+      session_id: sessionId,
+      player_id: session.sub,
+      source: "drop_in",
+      rsvp_status: "in",
+      payment_status: "owed",
+    });
+    if (error)
+      return NextResponse.json({ error: "Could not RSVP" }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "drop_in_cancel") {
+    if (!existing || existing.source !== "drop_in")
+      return NextResponse.json({ error: "No drop-in to cancel" }, { status: 400 });
+    await sb
+      .from("attendance")
+      .update({ rsvp_status: "cancelled" })
+      .eq("id", existing.id);
+    return NextResponse.json({ ok: true });
+  }
+
+  return NextResponse.json({ error: "Unknown action" }, { status: 400 });
+}
