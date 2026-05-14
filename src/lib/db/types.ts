@@ -10,7 +10,7 @@ export type SubscriptionStatus =
   | "paid"
   | "cancelled";
 export type SessionStatus = "scheduled" | "done" | "cancelled";
-export type AttendanceSource = "subscription" | "drop_in";
+export type AttendanceSource = "subscription" | "drop_in" | "passed";
 export type RsvpStatus = "in" | "opted_out" | "cancelled";
 export type PaymentStatus =
   | "n_a"

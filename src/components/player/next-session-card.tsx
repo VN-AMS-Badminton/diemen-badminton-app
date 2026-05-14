@@ -8,6 +8,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { RsvpAction } from "@/components/player/rsvp-actions";
+import { PassSlotDialog } from "@/components/player/pass-slot-dialog";
 import { PaymentBlock } from "@/components/player/payment-block";
 import { getPaymentContext } from "@/lib/sessions/get-payment-context";
 import { formatDate, formatWeekday } from "@/lib/format";
@@ -65,6 +66,7 @@ export function NextSessionCard({
               label="Can't make it"
               variant="outline"
             />
+            <PassSlotDialog sessionId={session.id} />
           </>
         )}
 
@@ -118,6 +120,10 @@ export function NextSessionCard({
                 label="Cancel RSVP"
                 variant="outline"
               />
+              {(attendance.payment_status === "self_marked_paid" ||
+                attendance.payment_status === "admin_confirmed") && (
+                <PassSlotDialog sessionId={session.id} />
+              )}
             </>
           )}
 

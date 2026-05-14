@@ -106,7 +106,15 @@ export default async function AdminSessionDetail({ params }: Props) {
                         {r.players?.whatsapp_number}
                       </div>
                     </TD>
-                    <TD>{r.source}</TD>
+                    <TD>
+                      <Badge
+                        variant={
+                          r.source === "passed" ? "warning" : "secondary"
+                        }
+                      >
+                        {r.source === "subscription" ? "sub" : r.source}
+                      </Badge>
+                    </TD>
                     <TD>
                       <Badge
                         variant={
