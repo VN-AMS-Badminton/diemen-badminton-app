@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth/get-session";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { AdminNav } from "@/components/admin/admin-nav";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const NAV = [
   { href: "/admin", label: "Overview" },
@@ -20,28 +22,25 @@ export default async function AdminLayout({
 }) {
   await requireAdmin();
   return (
-    <div className="min-h-dvh">
-      <header className="border-b">
+    <div className="min-h-dvh bg-muted/30">
+      <header className="bg-brand text-brand-foreground shadow-brand">
         <div className="container mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link href="/admin" className="font-semibold">
-            Diemen Admin
+          <Link
+            href="/admin"
+            className="flex items-center gap-2 font-extrabold tracking-tight"
+          >
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-brand-foreground/10 text-sm font-extrabold">
+              D
+            </span>
+            <span>Diemen Admin</span>
           </Link>
-          <LogoutButton variant="ghost" />
-        </div>
-        <nav className="border-t bg-muted/30">
-          <div className="container mx-auto flex max-w-6xl flex-wrap gap-2 px-4 py-2 text-sm">
-            {NAV.map((n) => (
-              <Link
-                key={n.href}
-                href={n.href}
-                className="rounded-md px-2 py-1 hover:bg-muted"
-              >
-                {n.label}
-              </Link>
-            ))}
+          <div className="flex items-center gap-1">
+            <ThemeToggle onBrand />
+            <LogoutButton variant="ghost" onBrand />
           </div>
-        </nav>
+        </div>
       </header>
+      <AdminNav items={NAV} />
       <main className="container mx-auto max-w-6xl px-4 py-6">{children}</main>
     </div>
   );

@@ -18,10 +18,16 @@ export default async function ProfilePage() {
 
   return (
     <main className="container mx-auto max-w-md space-y-6 px-4 py-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Profile</h1>
-        <Link href="/dashboard" className="text-sm underline-offset-2 hover:underline">
-          Back
+      <header className="flex items-end justify-between">
+        <div>
+          <p className="overline">Account</p>
+          <h1 className="text-2xl font-extrabold tracking-tight">Profile</h1>
+        </div>
+        <Link
+          href="/dashboard"
+          className="text-sm font-semibold text-brand underline-offset-2 hover:underline"
+        >
+          ← Back
         </Link>
       </header>
 
@@ -30,18 +36,9 @@ export default async function ProfilePage() {
           <CardTitle>Account</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
-          <div>
-            <span className="text-muted-foreground">Username:</span>{" "}
-            <span className="font-medium">{player.username}</span>
-          </div>
-          <div>
-            <span className="text-muted-foreground">WhatsApp:</span>{" "}
-            <span className="font-medium">{player.whatsapp_number}</span>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Role:</span>{" "}
-            <span className="font-medium">{player.role}</span>
-          </div>
+          <ProfileRow label="Username" value={player.username} />
+          <ProfileRow label="WhatsApp" value={player.whatsapp_number} />
+          <ProfileRow label="Role" value={player.role} />
           <p className="pt-2 text-xs text-muted-foreground">
             Need to change your WhatsApp number? Ask the admin.
           </p>
@@ -59,5 +56,14 @@ export default async function ProfilePage() {
 
       <LogoutButton />
     </main>
+  );
+}
+
+function ProfileRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-border/60 py-1.5 last:border-0">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-semibold">{value}</span>
+    </div>
   );
 }

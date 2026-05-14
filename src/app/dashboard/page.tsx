@@ -6,6 +6,7 @@ import { getActivePoll } from "@/lib/seasons/get-active-poll";
 import { NextSessionCard } from "@/components/player/next-session-card";
 import { SeasonPollCard } from "@/components/player/season-poll-card";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function DashboardPage() {
   const session = await requireSession();
@@ -40,19 +41,24 @@ export default async function DashboardPage() {
 
   return (
     <main className="container mx-auto max-w-md space-y-6 px-4 py-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">Hi, {player.username}</h1>
+      <header className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-extrabold tracking-tight">
+            {player.username}
+          </h1>
           {session.role === "admin" && (
             <Link
               href="/admin"
-              className="text-sm text-primary underline-offset-2 hover:underline"
+              className="mt-2 inline-flex items-center rounded-full bg-brand-soft px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-brand-soft-foreground hover:bg-brand-soft/80"
             >
-              Admin dashboard
+              Admin dashboard →
             </Link>
           )}
         </div>
-        <LogoutButton />
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <LogoutButton />
+        </div>
       </header>
 
       {showPoll && poll && (
@@ -85,11 +91,17 @@ export default async function DashboardPage() {
         }
       />
 
-      <nav className="flex flex-col gap-2 pt-4 text-sm">
-        <Link className="underline-offset-2 hover:underline" href="/profile">
-          Profile and PIN
+      <nav className="grid grid-cols-2 gap-2 pt-2">
+        <Link
+          href="/profile"
+          className="rounded-md border bg-card px-4 py-3 text-sm font-semibold transition-colors hover:border-brand/40 hover:bg-accent"
+        >
+          Profile &amp; PIN
         </Link>
-        <Link className="underline-offset-2 hover:underline" href="/sessions/history">
+        <Link
+          href="/sessions/history"
+          className="rounded-md border bg-card px-4 py-3 text-sm font-semibold transition-colors hover:border-brand/40 hover:bg-accent"
+        >
           Session history
         </Link>
       </nav>

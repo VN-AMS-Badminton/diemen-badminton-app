@@ -37,12 +37,15 @@ export function NextSessionCard({
     !!subscriptionRow &&
     (subscriptionRow.status === "confirmed" || subscriptionRow.status === "paid");
   const subscriberSlot = attendance?.source === "subscription";
+  const time = session.weekday_time.split(" ").slice(-1)[0];
 
   return (
-    <Card>
+    <Card accent>
       <CardHeader>
-        <CardTitle>
-          {formatWeekday(session.date)} {session.weekday_time.split(" ").slice(-1)[0]}
+        <p className="overline">Next session</p>
+        <CardTitle className="text-2xl">
+          {formatWeekday(session.date)}{" "}
+          <span className="text-brand tabular-nums">{time}</span>
         </CardTitle>
         <CardDescription>{formatDate(session.date)}</CardDescription>
       </CardHeader>
@@ -50,9 +53,9 @@ export function NextSessionCard({
         {/* State 1: Subscriber, IN */}
         {subscriberSlot && attendance?.rsvp_status === "in" && (
           <>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-2">
               <Badge variant="success">You&apos;re in</Badge>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm font-medium text-muted-foreground tabular-nums">
                 {confirmedInCount}/{session.capacity} confirmed
               </span>
             </div>
@@ -68,9 +71,9 @@ export function NextSessionCard({
         {/* State 2: Subscriber, OPTED OUT */}
         {subscriberSlot && attendance?.rsvp_status === "opted_out" && (
           <>
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary">Opted out</Badge>
-              <span className="text-sm text-muted-foreground">
+            <div className="flex items-center justify-between gap-2">
+              <Badge variant="warning">Opted out</Badge>
+              <span className="text-sm font-medium text-muted-foreground tabular-nums">
                 {confirmedInCount}/{session.capacity} confirmed
               </span>
             </div>
@@ -88,7 +91,7 @@ export function NextSessionCard({
           attendance &&
           attendance.rsvp_status === "in" && (
             <>
-              <Badge variant="success">RSVP&apos;d (drop-in)</Badge>
+              <Badge variant="success">RSVP&apos;d · drop-in</Badge>
               <PaymentBlock
                 tikkieUrl={
                   getPaymentContext({
@@ -121,8 +124,12 @@ export function NextSessionCard({
         {/* State 4: Non-subscriber, available */}
         {!isSubscriber && !attendance && remaining > 0 && (
           <>
-            <div className="text-sm text-muted-foreground">
-              {remaining} slot{remaining === 1 ? "" : "s"} left of {session.capacity}
+            <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
+              <span className="font-bold text-brand tabular-nums">
+                {remaining}
+              </span>{" "}
+              slot{remaining === 1 ? "" : "s"} left of{" "}
+              <span className="tabular-nums">{session.capacity}</span>
             </div>
             <RsvpAction
               sessionId={session.id}
@@ -134,7 +141,7 @@ export function NextSessionCard({
 
         {/* State 5: Non-subscriber, full */}
         {!isSubscriber && !attendance && remaining === 0 && (
-          <div className="text-sm text-muted-foreground">
+          <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
             Session is full this week.
           </div>
         )}

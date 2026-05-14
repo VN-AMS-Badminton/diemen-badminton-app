@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default async function AdminHome() {
   const sb = createServerSupabase();
@@ -48,74 +48,75 @@ export default async function AdminHome() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Overview</h1>
+      <div>
+        <p className="overline">Admin</p>
+        <h1 className="text-3xl font-extrabold tracking-tight">Overview</h1>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Pending approvals
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{pending.count ?? 0}</div>
-            <Link
-              href="/admin/approvals"
-              className="text-sm text-primary underline-offset-2 hover:underline"
-            >
-              Review →
-            </Link>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Current season
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-semibold">
-              {activeSeason.data?.year_month ?? "—"}
-            </div>
-            <div className="text-sm text-muted-foreground">
-              {activeSeason.data?.status ?? "no active season"}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Next session
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-semibold">
-              {nextSession.data?.date ?? "—"}
-            </div>
-            <div className="text-sm text-muted-foreground">
-              {attendingCount} confirmed of {nextSession.data?.capacity ?? 0}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Paid this session
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{paidCount}</div>
-            <Link
-              href="/admin/reconciliation"
-              className="text-sm text-primary underline-offset-2 hover:underline"
-            >
-              Reconcile →
-            </Link>
-          </CardContent>
-        </Card>
+        <StatTile
+          label="Pending approvals"
+          value={pending.count ?? 0}
+          href="/admin/approvals"
+          linkLabel="Review"
+        />
+        <StatTile
+          label="Current season"
+          value={activeSeason.data?.year_month ?? "—"}
+          sub={activeSeason.data?.status ?? "no active season"}
+        />
+        <StatTile
+          label="Next session"
+          value={nextSession.data?.date ?? "—"}
+          sub={
+            nextSession.data
+              ? `${attendingCount} confirmed of ${nextSession.data.capacity}`
+              : undefined
+          }
+        />
+        <StatTile
+          label="Paid this session"
+          value={paidCount}
+          href="/admin/reconciliation"
+          linkLabel="Reconcile"
+        />
       </div>
     </div>
+  );
+}
+
+function StatTile({
+  label,
+  value,
+  sub,
+  href,
+  linkLabel,
+}: {
+  label: string;
+  value: string | number;
+  sub?: string;
+  href?: string;
+  linkLabel?: string;
+}) {
+  return (
+    <Card className="transition-shadow hover:shadow-brand">
+      <CardContent className="p-5">
+        <p className="overline">{label}</p>
+        <div className="mt-2 text-3xl font-extrabold tracking-tight tabular-nums">
+          {value}
+        </div>
+        {sub && (
+          <div className="mt-1 text-sm text-muted-foreground">{sub}</div>
+        )}
+        {href && linkLabel && (
+          <Link
+            href={href}
+            className="mt-3 inline-flex items-center text-sm font-semibold text-brand underline-offset-2 hover:underline"
+          >
+            {linkLabel} →
+          </Link>
+        )}
+      </CardContent>
+    </Card>
   );
 }

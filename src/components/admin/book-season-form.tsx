@@ -144,7 +144,7 @@ export function BookSeasonForm({
         {pending ? "Booking..." : "Book season & generate sessions"}
       </Button>
       {error && <p className="text-sm text-destructive">{error}</p>}
-      {result && <p className="text-sm text-green-600">{result}</p>}
+      {result && <p className="text-sm font-medium text-success">{result}</p>}
     </form>
   );
 }

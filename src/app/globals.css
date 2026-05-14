@@ -2,46 +2,104 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+  Design System: High-Velocity Precision
+  PRD mapping:
+  - Royal Blue (#004185) → --brand (chrome, nav, identity)
+  - Emerald (#008552) → --primary (CTAs, default action)
+*/
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 0 0% 9%;
+    --foreground: 222 20% 12%;
+
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 9%;
-    --primary: 142 70% 36%;
+    --card-foreground: 222 20% 12%;
+
+    /* Emerald = CTAs (PRD accent → shadcn primary) */
+    --primary: 159 100% 26%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 45%;
-    --accent: 0 0% 96%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 72% 50%;
+    --primary-hover: 159 100% 32%;
+
+    /* Royal Blue = brand chrome (PRD primary) */
+    --brand: 211 100% 26%;
+    --brand-foreground: 0 0% 100%;
+    --brand-hover: 211 100% 32%;
+    --brand-soft: 211 100% 96%;
+    --brand-soft-foreground: 211 100% 22%;
+
+    --secondary: 210 20% 96%;
+    --secondary-foreground: 222 20% 12%;
+
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 15% 40%;
+
+    --accent: 159 60% 95%;
+    --accent-foreground: 159 100% 18%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 30 100% 14%;
+    --warning-soft: 45 100% 94%;
+
+    --success: 159 100% 26%;
+    --success-foreground: 0 0% 100%;
+    --success-soft: 159 60% 94%;
+    --success-soft-foreground: 159 100% 18%;
+
+    --destructive: 0 84% 50%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
-    --ring: 142 70% 36%;
+    --destructive-soft: 0 90% 96%;
+    --destructive-soft-foreground: 0 70% 35%;
+
+    --border: 214 20% 89%;
+    --input: 214 20% 89%;
+    --ring: 159 100% 26%;
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 0 0% 7%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 9%;
-    --card-foreground: 0 0% 98%;
-    --primary: 142 70% 45%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14%;
-    --muted-foreground: 0 0% 63%;
-    --accent: 0 0% 14%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62% 50%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 18%;
-    --input: 0 0% 18%;
-    --ring: 142 70% 45%;
+    --background: 222 30% 8%;
+    --foreground: 210 20% 96%;
+
+    --card: 222 25% 12%;
+    --card-foreground: 210 20% 96%;
+
+    --primary: 159 80% 45%;
+    --primary-foreground: 222 30% 8%;
+    --primary-hover: 159 80% 52%;
+
+    --brand: 211 90% 60%;
+    --brand-foreground: 222 30% 8%;
+    --brand-hover: 211 90% 68%;
+    --brand-soft: 211 60% 18%;
+    --brand-soft-foreground: 211 90% 80%;
+
+    --secondary: 222 20% 16%;
+    --secondary-foreground: 210 20% 96%;
+
+    --muted: 222 20% 16%;
+    --muted-foreground: 215 15% 65%;
+
+    --accent: 159 60% 14%;
+    --accent-foreground: 159 80% 80%;
+
+    --warning: 38 92% 55%;
+    --warning-foreground: 30 100% 10%;
+    --warning-soft: 38 50% 18%;
+
+    --success: 159 80% 45%;
+    --success-foreground: 222 30% 8%;
+    --success-soft: 159 50% 16%;
+    --success-soft-foreground: 159 80% 75%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --destructive-soft: 0 50% 18%;
+    --destructive-soft-foreground: 0 80% 80%;
+
+    --border: 222 20% 20%;
+    --input: 222 20% 20%;
+    --ring: 159 80% 45%;
   }
 }
 
@@ -49,12 +107,42 @@
   * {
     @apply border-border;
   }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-tap-highlight-color: transparent;
   }
   /* Mobile tap targets */
   button, a, input, select, textarea {
     @apply touch-manipulation;
+  }
+  /* Tabular numerics for money / scores */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+  /* Bold display headings with tight tracking */
+  h1, h2, h3 {
+    letter-spacing: -0.015em;
+  }
+  h1 {
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer components {
+  /* Overline label: small uppercase, brand-tinted */
+  .overline {
+    @apply text-[11px] font-bold uppercase tracking-[0.08em] text-brand;
+  }
+  /* Brand accent stripe for hero cards */
+  .brand-stripe {
+    @apply relative overflow-hidden;
+  }
+  .brand-stripe::before {
+    content: "";
+    @apply absolute left-0 top-0 h-1 w-full bg-brand;
   }
 }

@@ -1,0 +1,39 @@
+# VCS
+.git
+.gitignore
+
+# Local env (never copy secrets into image layers)
+.env
+.env.*
+!.env.example
+env.example.txt
+
+# Build artifacts
+.next
+node_modules
+dist
+build
+out
+coverage
+
+# IDE / OS
+.DS_Store
+.vscode
+.idea
+*.log
+
+# Project tooling not needed at build time
+.claude
+.agents
+plans
+docs
+scripts
+supabase
+*.md
+release-manifest.json
+skills-lock.json
+.repomixignore
+.nvmrc
+
+# Test artifacts
+*.tsbuildinfo

@@ -57,7 +57,7 @@ export function SessionTikkieUrlForm({
           Save
         </Button>
       </div>
-      {saved && <p className="text-sm text-green-600">Saved.</p>}
+      {saved && <p className="text-sm font-medium text-success">Saved.</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
     </form>
   );

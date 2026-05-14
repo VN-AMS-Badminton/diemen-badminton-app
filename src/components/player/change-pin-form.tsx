@@ -76,7 +76,7 @@ export function ChangePinForm() {
         />
       </div>
       {msg?.err && <p className="text-sm text-destructive">{msg.err}</p>}
-      {msg?.ok && <p className="text-sm text-green-600">{msg.ok}</p>}
+      {msg?.ok && <p className="text-sm font-medium text-success">{msg.ok}</p>}
       <Button type="submit" disabled={pending}>
         {pending ? "Updating..." : "Change PIN"}
       </Button>

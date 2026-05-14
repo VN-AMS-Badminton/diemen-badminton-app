@@ -1,5 +1,13 @@
 import type { Metadata, Viewport } from "next";
+import { Montserrat } from "next/font/google";
 import "./globals.css";
+
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-montserrat",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Diemen Badminton",
@@ -15,8 +23,22 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#16a34a",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#004185" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a1626" },
+  ],
 };
+
+// Runs before hydration to prevent dark-mode flash (FOUC).
+const themeInitScript = `
+(function () {
+  try {
+    var t = localStorage.getItem('theme');
+    var prefers = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (t === 'dark' || (!t && prefers)) document.documentElement.classList.add('dark');
+  } catch (e) {}
+})();
+`;
 
 export default function RootLayout({
   children,
@@ -24,8 +46,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className="min-h-dvh antialiased">{children}</body>
+    <html lang="en" suppressHydrationWarning className={montserrat.variable}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
+      <body className="min-h-dvh font-sans antialiased">{children}</body>
     </html>
   );
 }

@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 export function SeasonPollCard({
   seasonId,
@@ -36,28 +37,45 @@ export function SeasonPollCard({
   }
 
   return (
-    <Card>
+    <Card accent>
       <CardHeader>
-        <CardTitle>Subscribe to {yearMonth}?</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-sm text-muted-foreground">
+        <p className="overline">Monthly poll</p>
+        <CardTitle>
+          Subscribe to <span className="text-brand tabular-nums">{yearMonth}</span>?
+        </CardTitle>
+        <CardDescription>
           Subscribers play every week this month and pay once. Drop-ins can also
           join individual weeks if there are slots.
-        </p>
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
         {currentStatus === "opted_in" ? (
-          <>
-            <p className="text-sm font-medium">You opted in.</p>
-            <Button variant="outline" onClick={() => act("cancel")} disabled={pending}>
-              Cancel
+          <div className="space-y-3">
+            <Badge variant="success">You opted in</Badge>
+            <Button
+              variant="outline"
+              onClick={() => act("cancel")}
+              disabled={pending}
+              className="w-full"
+            >
+              {pending ? "Cancelling..." : "Cancel opt-in"}
             </Button>
-          </>
+          </div>
         ) : (
-          <Button onClick={() => act("opt_in")} disabled={pending} className="w-full">
+          <Button
+            onClick={() => act("opt_in")}
+            disabled={pending}
+            size="lg"
+            className="w-full"
+          >
             {pending ? "Saving..." : "Yes, sign me up"}
           </Button>
         )}
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && (
+          <p className="text-sm font-medium text-destructive" role="alert">
+            {error}
+          </p>
+        )}
       </CardContent>
     </Card>
   );
