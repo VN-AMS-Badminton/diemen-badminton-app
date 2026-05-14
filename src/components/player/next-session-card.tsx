@@ -121,8 +121,8 @@ export function NextSessionCard({
             </>
           )}
 
-        {/* State 4: Non-subscriber, available */}
-        {!isSubscriber && !attendance && remaining > 0 && (
+        {/* State 4: Non-subscriber, available (or previously cancelled drop-in) */}
+        {!isSubscriber && (!attendance || attendance.rsvp_status === "cancelled") && remaining > 0 && (
           <>
             <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
               <span className="font-bold text-brand tabular-nums">
@@ -139,8 +139,8 @@ export function NextSessionCard({
           </>
         )}
 
-        {/* State 5: Non-subscriber, full */}
-        {!isSubscriber && !attendance && remaining === 0 && (
+        {/* State 5: Non-subscriber, full (or previously cancelled drop-in) */}
+        {!isSubscriber && (!attendance || attendance.rsvp_status === "cancelled") && remaining === 0 && (
           <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
             Session is full this week.
           </div>
