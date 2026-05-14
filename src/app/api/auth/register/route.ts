@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth/rate-limit";
 
 const schema = z.object({
+  displayName: z.string().min(2).max(64),
   username: z.string().min(2).max(32),
   pin: z.string().regex(/^\d{4}$/, "PIN must be 4 digits"),
   pinConfirm: z.string(),
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const { username: rawUser, pin, pinConfirm, whatsappNumber: rawPhone, inviteCode, hp } = parsed.data;
+  const { displayName, username: rawUser, pin, pinConfirm, whatsappNumber: rawPhone, inviteCode, hp } = parsed.data;
   if (hp) return NextResponse.json({ ok: true }); // silently drop bots
   if (pin !== pinConfirm)
     return NextResponse.json({ error: "PINs do not match" }, { status: 400 });
@@ -68,6 +69,7 @@ export async function POST(req: Request) {
     .from("players")
     .insert({
       username,
+      display_name: displayName.trim(),
       whatsapp_number: whatsapp,
       pin_hash: pinHash,
       role: "player",

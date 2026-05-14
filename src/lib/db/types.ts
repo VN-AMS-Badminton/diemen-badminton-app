@@ -21,6 +21,7 @@ export type PaymentStatus =
 export interface PlayerRow {
   id: string;
   username: string;
+  display_name: string;
   whatsapp_number: string;
   pin_hash: string;
   role: PlayerRole;

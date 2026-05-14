@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 
 export function RegisterForm({ inviteCode }: { inviteCode: string }) {
   const router = useRouter();
+  const [displayName, setDisplayName] = React.useState("");
   const [username, setUsername] = React.useState("");
   const [pin, setPin] = React.useState("");
   const [pinConfirm, setPinConfirm] = React.useState("");
@@ -29,6 +30,7 @@ export function RegisterForm({ inviteCode }: { inviteCode: string }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          displayName,
           username,
           pin,
           pinConfirm,
@@ -64,18 +66,38 @@ export function RegisterForm({ inviteCode }: { inviteCode: string }) {
   return (
     <form onSubmit={submit} className="space-y-4" noValidate>
       <div className="space-y-2">
-        <Label htmlFor="username">Username</Label>
+        <Label htmlFor="displayName">Your name</Label>
+        <Input
+          id="displayName"
+          autoComplete="name"
+          placeholder="e.g. Jan de Vries"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          required
+          minLength={2}
+          maxLength={64}
+        />
+        <p className="text-xs text-muted-foreground">
+          Shown to the admin so they know who you are.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="username">Login handle</Label>
         <Input
           id="username"
           autoComplete="username"
           autoCapitalize="none"
           autoCorrect="off"
+          placeholder="e.g. jan"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           required
           minLength={2}
           maxLength={32}
         />
+        <p className="text-xs text-muted-foreground">
+          Used to sign in. Lowercase, no spaces.
+        </p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="whatsapp">WhatsApp number (e.g. +31612345678)</Label>

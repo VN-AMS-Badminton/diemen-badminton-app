@@ -8,8 +8,8 @@ export default async function PlayersPage() {
   const sb = createServerSupabase();
   const { data } = await sb
     .from("players")
-    .select("id, username, whatsapp_number, role, status, created_at")
-    .order("username");
+    .select("id, username, display_name, whatsapp_number, role, status, created_at")
+    .order("display_name");
 
   const rows = data ?? [];
 
@@ -22,7 +22,7 @@ export default async function PlayersPage() {
         <Table>
           <THead>
             <TR>
-              <TH>Username</TH>
+              <TH>Name</TH>
               <TH>WhatsApp</TH>
               <TH>Role</TH>
               <TH>Status</TH>
@@ -32,7 +32,10 @@ export default async function PlayersPage() {
           <TBody>
             {rows.map((p) => (
               <TR key={p.id}>
-                <TD className="font-medium">{p.username}</TD>
+                <TD>
+                  <div className="font-medium">{p.display_name || p.username}</div>
+                  <div className="text-xs text-muted-foreground">@{p.username}</div>
+                </TD>
                 <TD className="text-muted-foreground">{p.whatsapp_number}</TD>
                 <TD>{p.role}</TD>
                 <TD>

@@ -7,7 +7,7 @@ export default async function ApprovalsPage() {
   const sb = createServerSupabase();
   const { data } = await sb
     .from("players")
-    .select("id, username, whatsapp_number, created_at")
+    .select("id, username, display_name, whatsapp_number, created_at")
     .eq("status", "pending")
     .order("created_at", { ascending: true });
 

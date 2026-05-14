@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 interface PendingPlayer {
   id: string;
   username: string;
+  display_name: string;
   whatsapp_number: string;
   created_at: string;
 }
@@ -51,7 +52,7 @@ export function ApprovalQueue({ players }: { players: PendingPlayer[] }) {
       <Table>
         <THead>
           <TR>
-            <TH>Username</TH>
+            <TH>Name</TH>
             <TH>WhatsApp</TH>
             <TH>Registered</TH>
             <TH>Status</TH>
@@ -61,7 +62,10 @@ export function ApprovalQueue({ players }: { players: PendingPlayer[] }) {
         <TBody>
           {players.map((p) => (
             <TR key={p.id}>
-              <TD className="font-medium">{p.username}</TD>
+              <TD>
+                <div className="font-medium">{p.display_name}</div>
+                <div className="text-xs text-muted-foreground">@{p.username}</div>
+              </TD>
               <TD className="text-muted-foreground">{p.whatsapp_number}</TD>
               <TD className="text-muted-foreground">
                 {new Date(p.created_at).toLocaleString("nl-NL", {
