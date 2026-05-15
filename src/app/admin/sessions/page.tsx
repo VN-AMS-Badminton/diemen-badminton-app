@@ -53,7 +53,7 @@ interface S {
   id: string;
   date: string;
   weekday_time: string;
-  location: string | null;
+  location: string;
   capacity: number;
   status: string;
 }

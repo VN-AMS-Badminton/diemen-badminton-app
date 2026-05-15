@@ -10,7 +10,7 @@ const PatchSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD")
     .optional(),
   weekday_time: z.string().min(1).max(40).optional(),
-  location: z.string().max(200).nullable().optional(),
+  location: z.string().trim().min(1, "Location is required").max(200).optional(),
   capacity: z.number().int().min(1).max(200).optional(),
   tikkie_url: z.string().url().or(z.literal("")).nullable().optional(),
   status: z.enum(["scheduled", "cancelled", "done"]).optional(),
@@ -72,9 +72,7 @@ export async function PATCH(
   const patch: Record<string, unknown> = {};
   if (parsed.data.date !== undefined) patch.date = parsed.data.date;
   if (parsed.data.weekday_time !== undefined) patch.weekday_time = parsed.data.weekday_time;
-  if (parsed.data.location !== undefined) {
-    patch.location = parsed.data.location === "" ? null : parsed.data.location;
-  }
+  if (parsed.data.location !== undefined) patch.location = parsed.data.location;
   if (parsed.data.capacity !== undefined) patch.capacity = parsed.data.capacity;
   if (parsed.data.tikkie_url !== undefined) {
     patch.tikkie_url = parsed.data.tikkie_url === "" ? null : parsed.data.tikkie_url;

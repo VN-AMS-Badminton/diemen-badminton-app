@@ -15,7 +15,7 @@ interface Props {
     id: string;
     date: string;
     weekday_time: string;
-    location: string | null;
+    location: string;
     capacity: number;
     status: SessionStatus;
   };
@@ -25,7 +25,7 @@ export function SessionEditForm({ session }: Props) {
   const router = useRouter();
   const [date, setDate] = React.useState(session.date);
   const [weekdayTime, setWeekdayTime] = React.useState(session.weekday_time);
-  const [location, setLocation] = React.useState(session.location ?? "");
+  const [location, setLocation] = React.useState(session.location);
   const [capacity, setCapacity] = React.useState(session.capacity);
   const [status, setStatus] = React.useState<SessionStatus>(session.status);
   const [pending, startTransition] = React.useTransition();
@@ -48,7 +48,7 @@ export function SessionEditForm({ session }: Props) {
         body: JSON.stringify({
           date,
           weekday_time: weekdayTime,
-          location: location || null,
+          location,
           capacity,
           status,
         }),
@@ -88,13 +88,16 @@ export function SessionEditForm({ session }: Props) {
           />
         </div>
         <div className="col-span-2 space-y-2">
-          <Label htmlFor="se-location">Location (optional)</Label>
+          <Label htmlFor="se-location">Location</Label>
           <Input
             id="se-location"
             type="text"
             placeholder="Sporthal Diemen — Court 2"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
+            required
+            minLength={1}
+            maxLength={200}
           />
         </div>
         <div className="space-y-2">

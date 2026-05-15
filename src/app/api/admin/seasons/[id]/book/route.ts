@@ -10,6 +10,9 @@ const schema = z.object({
   capacity_override: z.number().int().min(1).max(200).optional(),
   weekday: z.number().int().min(0).max(6),
   time: z.string().regex(/^\d{2}:\d{2}$/),
+  // Default venue applied to every generated session — admin can override
+  // per-session afterwards via /admin/sessions/[id].
+  location: z.string().trim().min(1, "Location is required").max(200),
   subscription_fee_per_session_cents: z.number().int().min(0).optional(),
   drop_in_fee_per_session_cents: z.number().int().min(0).optional(),
 });
@@ -86,6 +89,7 @@ export async function POST(
       season_id: id,
       date: p.date,
       weekday_time: p.weekday_time,
+      location: parsed.data.location,
       capacity,
       status: "scheduled",
     });

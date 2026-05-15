@@ -33,16 +33,39 @@ export default async function AdminSessionDetail({ params }: Props) {
     source: string;
     rsvp_status: string;
     payment_status: string;
-    players: { username: string; whatsapp_number: string } | null;
+    players: {
+      username: string;
+      whatsapp_number: string;
+      referred_by: string | null;
+    } | null;
   };
   const { data } = await sb
     .from("attendance")
     .select(
-      "id, source, rsvp_status, payment_status, players:player_id(username, whatsapp_number)",
+      "id, source, rsvp_status, payment_status, players:player_id(username, whatsapp_number, referred_by)",
     )
     .eq("session_id", id)
     .order("rsvp_status", { ascending: true });
   const rows = (data ?? []) as unknown as R[];
+
+  // Resolve referrer display names so admin can see who invited each referral.
+  const referrerIds = Array.from(
+    new Set(
+      rows
+        .map((r) => r.players?.referred_by)
+        .filter((id): id is string => !!id),
+    ),
+  );
+  const referrerById = new Map<string, string>();
+  if (referrerIds.length > 0) {
+    const { data: refs } = await sb
+      .from("players")
+      .select("id, display_name")
+      .in("id", referrerIds);
+    for (const ref of refs ?? []) {
+      referrerById.set(ref.id, ref.display_name);
+    }
+  }
 
   const confirmed = rows.filter((r) => r.rsvp_status === "in").length;
   const owed = rows.filter(
@@ -79,7 +102,7 @@ export default async function AdminSessionDetail({ params }: Props) {
               id: sess.id,
               date: sess.date,
               weekday_time: sess.weekday_time,
-              location: sess.location ?? null,
+              location: sess.location,
               capacity: sess.capacity,
               status: sess.status as SessionStatus,
             }}
@@ -119,18 +142,31 @@ export default async function AdminSessionDetail({ params }: Props) {
                 </TR>
               </THead>
               <TBody>
-                {rows.map((r) => (
+                {rows.map((r) => {
+                  const referrerName = r.players?.referred_by
+                    ? referrerById.get(r.players.referred_by)
+                    : null;
+                  return (
                   <TR key={r.id}>
                     <TD>
                       <div className="font-medium">{r.players?.username}</div>
                       <div className="text-xs text-muted-foreground">
                         {r.players?.whatsapp_number}
                       </div>
+                      {referrerName && (
+                        <div className="text-xs text-muted-foreground">
+                          Referred by {referrerName}
+                        </div>
+                      )}
                     </TD>
                     <TD>
                       <Badge
                         variant={
-                          r.source === "passed" ? "warning" : "secondary"
+                          r.source === "referral"
+                            ? "brand"
+                            : r.source === "passed"
+                              ? "warning"
+                              : "secondary"
                         }
                       >
                         {r.source === "subscription" ? "sub" : r.source}
@@ -173,7 +209,8 @@ export default async function AdminSessionDetail({ params }: Props) {
                       )}
                     </TD>
                   </TR>
-                ))}
+                  );
+                })}
               </TBody>
             </Table>
           )}

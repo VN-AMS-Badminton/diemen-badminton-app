@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { PlayerDetail } from "@/components/admin/player-detail";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/format";
 
 interface Props {
@@ -24,6 +25,16 @@ export default async function PlayerDetailPage({ params }: Props) {
   ]);
   if (!player) notFound();
 
+  const referrer = player.referred_by
+    ? (
+        await sb
+          .from("players")
+          .select("id, username, display_name")
+          .eq("id", player.referred_by)
+          .maybeSingle()
+      ).data
+    : null;
+
   return (
     <div className="space-y-6">
       <div>
@@ -34,6 +45,23 @@ export default async function PlayerDetailPage({ params }: Props) {
           ← Back to players
         </Link>
         <h1 className="mt-2 text-2xl font-bold">{player.username}</h1>
+        {referrer && (
+          <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+            <Badge variant="brand">Referral</Badge>
+            <span>
+              Invited by{" "}
+              <Link
+                href={`/admin/players/${referrer.id}`}
+                className="underline-offset-2 hover:underline"
+              >
+                {referrer.display_name || referrer.username}
+              </Link>
+              {player.free_trial_used
+                ? " · free trial used"
+                : " · free trial unused"}
+            </span>
+          </p>
+        )}
       </div>
       <PlayerDetail
         player={{

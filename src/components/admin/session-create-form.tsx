@@ -44,7 +44,7 @@ export function SessionCreateForm({ seasonId, defaults }: Props) {
           season_id: seasonId,
           date,
           weekday_time: weekdayTime,
-          location: location || null,
+          location,
           capacity,
         }),
       });
@@ -86,13 +86,16 @@ export function SessionCreateForm({ seasonId, defaults }: Props) {
           />
         </div>
         <div className="col-span-2 space-y-2">
-          <Label htmlFor="sc-location">Location (optional)</Label>
+          <Label htmlFor="sc-location">Location</Label>
           <Input
             id="sc-location"
             type="text"
             placeholder="Sporthal Diemen — Court 2"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
+            required
+            minLength={1}
+            maxLength={200}
           />
         </div>
         <div className="space-y-2">

@@ -12,7 +12,7 @@ const CreateSchema = z.object({
   season_id: z.string().uuid(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
   weekday_time: z.string().min(1).max(40),
-  location: z.string().max(200).nullable().optional(),
+  location: z.string().trim().min(1, "Location is required").max(200),
   capacity: z.number().int().min(1).max(200),
   tikkie_url: z.string().url().or(z.literal("")).nullable().optional(),
 });
@@ -51,10 +51,7 @@ export async function POST(req: Request) {
     season_id: parsed.data.season_id,
     date: parsed.data.date,
     weekday_time: parsed.data.weekday_time,
-    location:
-      parsed.data.location === "" || parsed.data.location === undefined
-        ? null
-        : parsed.data.location,
+    location: parsed.data.location,
     capacity: parsed.data.capacity,
     tikkie_url:
       parsed.data.tikkie_url === "" || parsed.data.tikkie_url === undefined

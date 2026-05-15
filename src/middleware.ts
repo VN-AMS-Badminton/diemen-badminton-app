@@ -8,9 +8,12 @@ const PUBLIC_PATHS = [
   "/api/auth/register",
   "/api/auth/login",
   "/api/auth/logout",
+  "/api/refer/activate",
 ];
 
 function isPublic(path: string): boolean {
+  // Guest activation pages: /refer/<code> must be reachable signed out.
+  if (path.startsWith("/refer/")) return true;
   return PUBLIC_PATHS.some(
     (p) => path === p || path.startsWith(`${p}/`) || path.startsWith(p + "?"),
   );

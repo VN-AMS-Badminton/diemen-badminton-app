@@ -10,7 +10,7 @@ export type SubscriptionStatus =
   | "paid"
   | "cancelled";
 export type SessionStatus = "scheduled" | "done" | "cancelled";
-export type AttendanceSource = "subscription" | "drop_in" | "passed";
+export type AttendanceSource = "subscription" | "drop_in" | "passed" | "referral";
 export type RsvpStatus = "in" | "opted_out" | "cancelled";
 export type PaymentStatus =
   | "n_a"
@@ -22,10 +22,16 @@ export interface PlayerRow {
   id: string;
   username: string;
   display_name: string;
-  whatsapp_number: string;
-  pin_hash: string;
+  // Null for referral guests who only provided a name on activation.
+  whatsapp_number: string | null;
+  // Null for guest accounts created via referral (no login).
+  pin_hash: string | null;
   role: PlayerRole;
   status: PlayerStatus;
+  // FK to the referring player (null for self-registered players).
+  referred_by: string | null;
+  // Flipped true when a referred player consumes their one free session.
+  free_trial_used: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -63,7 +69,8 @@ export interface SessionRow {
   weekday_time: string;
   capacity: number;
   tikkie_url: string | null;
-  location: string | null;
+  // Venue label. Mandatory on every session (DB NOT NULL).
+  location: string;
   status: SessionStatus;
   created_at: string;
   updated_at: string;
@@ -90,6 +97,9 @@ export interface InviteRow {
   max_uses: number;
   uses_count: number;
   revoked: boolean;
+  // Set when invite activates a pre-created pending referral player instead of
+  // creating a new account on registration.
+  target_player_id: string | null;
   created_at: string;
 }
 

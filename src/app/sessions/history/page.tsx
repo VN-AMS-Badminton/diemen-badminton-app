@@ -23,7 +23,7 @@ export default async function HistoryPage() {
     rsvp_status: string;
     payment_status: string;
     source: string;
-    sessions: { date: string; weekday_time: string; location: string | null } | null;
+    sessions: { date: string; weekday_time: string; location: string } | null;
   };
   const rows = (data ?? []) as unknown as Row[];
 

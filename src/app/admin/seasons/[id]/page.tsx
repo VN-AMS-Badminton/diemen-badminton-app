@@ -49,7 +49,7 @@ export default async function SeasonDetailPage({ params }: Props) {
     id: string;
     date: string;
     weekday_time: string;
-    location: string | null;
+    location: string;
     capacity: number;
     status: string;
     attendance: { count: number }[];

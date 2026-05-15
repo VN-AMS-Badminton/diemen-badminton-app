@@ -20,6 +20,7 @@ export function BookSeasonForm({
   const [capacity, setCapacity] = React.useState<number | "">("");
   const [weekday, setWeekday] = React.useState(4); // Thursday
   const [time, setTime] = React.useState("19:00");
+  const [location, setLocation] = React.useState("");
   const [subFee, setSubFee] = React.useState(defaultSubFee);
   const [dropFee, setDropFee] = React.useState(defaultDropFee);
   const [pending, startTransition] = React.useTransition();
@@ -45,6 +46,7 @@ export function BookSeasonForm({
           capacity_override: capacity === "" ? undefined : capacity,
           weekday,
           time,
+          location,
           subscription_fee_per_session_cents: subFee,
           drop_in_fee_per_session_cents: dropFee,
         }),
@@ -123,6 +125,23 @@ export function BookSeasonForm({
             onChange={(e) => setTime(e.target.value)}
             required
           />
+        </div>
+        <div className="col-span-2 space-y-2">
+          <Label htmlFor="bsf-location">Location</Label>
+          <Input
+            id="bsf-location"
+            type="text"
+            placeholder="e.g. Sporthal Diemen — Court 2"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            required
+            minLength={1}
+            maxLength={200}
+          />
+          <p className="text-xs text-muted-foreground">
+            Applied to every generated session — edit per-session afterwards if
+            needed.
+          </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="sf">Subscription fee per session (cents)</Label>
