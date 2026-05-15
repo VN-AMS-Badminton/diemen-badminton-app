@@ -1,18 +1,24 @@
 import crypto from "node:crypto";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { writeAudit } from "@/lib/admin/audit";
+import { getActiveReferralInvite } from "@/lib/referrals/get-active-referral-invite";
 
 export interface CreateReferralResult {
   ok: boolean;
   error?: string;
   code?: string;
+  /** True when an existing active invite was returned instead of a new one. */
+  reused?: boolean;
 }
 
 const INVITE_TTL_DAYS = 30;
 
-// Active member generates a single-use referral invite. The referred guest
-// later visits /refer/<code>, enters their name, picks a session, and is
-// activated as a player with one free attendance in a single submit.
+// Active member generates (or reuses) a single referral invite. Each referrer
+// is capped at ONE active invite at a time — calling this when an active one
+// already exists returns that same code instead of minting a new row.
+//
+// "Active" = not revoked, not expired, not fully used. To get a fresh code
+// the referrer must revoke their current invite first (see revokeReferralInvite).
 //
 // No friend-side data is collected here — the referrer just produces a link.
 export async function createReferralInvite(
@@ -27,6 +33,12 @@ export async function createReferralInvite(
     .maybeSingle();
   if (!referrer || referrer.status !== "active") {
     return { ok: false, error: "Only active members can refer" };
+  }
+
+  // Reuse path: surface the existing active invite instead of creating clutter.
+  const existing = await getActiveReferralInvite(referrerId);
+  if (existing) {
+    return { ok: true, code: existing.code, reused: true };
   }
 
   const code = crypto.randomBytes(8).toString("base64url");
@@ -58,5 +70,5 @@ export async function createReferralInvite(
     { code },
   );
 
-  return { ok: true, code };
+  return { ok: true, code, reused: false };
 }

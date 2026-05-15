@@ -6,6 +6,7 @@ import { getActivePoll } from "@/lib/seasons/get-active-poll";
 import { NextSessionCard } from "@/components/player/next-session-card";
 import { SeasonPollCard } from "@/components/player/season-poll-card";
 import { ReferLinkCard } from "@/components/player/refer-link-card";
+import { getActiveReferralInvite } from "@/lib/referrals/get-active-referral-invite";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -92,7 +93,11 @@ export default async function DashboardPage() {
         }
       />
 
-      {player.status === "active" && <ReferLinkCard />}
+      {player.status === "active" && (
+        <ReferLinkCard
+          initialCode={(await getActiveReferralInvite(session.sub))?.code ?? null}
+        />
+      )}
 
       <nav className="grid grid-cols-2 gap-2 pt-2">
         <Link
