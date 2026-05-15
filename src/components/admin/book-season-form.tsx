@@ -54,9 +54,13 @@ export function BookSeasonForm({
         setError(data?.error ?? "Booking failed");
         return;
       }
-      const subTotal = ((subFee * data.sessionsGenerated) / 100).toFixed(2);
+      const totalPlanned = data.sessionsGenerated ?? 0;
+      const created = data.sessionsCreated ?? totalPlanned;
+      const skipped = data.sessionsSkipped ?? 0;
+      const subTotal = ((subFee * totalPlanned) / 100).toFixed(2);
+      const skippedNote = skipped > 0 ? ` · skipped ${skipped} existing` : "";
       setResult(
-        `Generated ${data.sessionsGenerated} sessions · subscription total €${subTotal} (${data.sessionsGenerated} × €${(subFee / 100).toFixed(2)}) · confirmed ${data.subscribersConfirmed} subscribers.`,
+        `Created ${created} sessions${skippedNote} · subscription total €${subTotal} (${totalPlanned} × €${(subFee / 100).toFixed(2)}) · confirmed ${data.subscribersConfirmed} subscribers.`,
       );
       router.refresh();
     });
@@ -96,6 +100,7 @@ export function BookSeasonForm({
           <Label htmlFor="weekday">Weekday</Label>
           <select
             id="weekday"
+            aria-label="Weekday"
             value={weekday}
             onChange={(e) => setWeekday(parseInt(e.target.value, 10))}
             className="h-11 w-full rounded-md border bg-background px-3"

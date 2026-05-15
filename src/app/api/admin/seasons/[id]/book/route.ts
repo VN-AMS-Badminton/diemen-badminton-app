@@ -67,28 +67,29 @@ export async function POST(
     time: parsed.data.time,
   });
 
-  // Idempotent upsert on (season_id, date).
+  // Insert-only: preserve manual edits made via per-session admin UI.
+  // Existing rows on the same (season_id, date) are skipped untouched.
+  let sessionsCreated = 0;
+  let sessionsSkipped = 0;
   for (const p of planned) {
     const { data: existing } = await sb
       .from("sessions")
-      .select("*")
+      .select("id")
       .eq("season_id", id)
       .eq("date", p.date)
       .maybeSingle();
     if (existing) {
-      await sb
-        .from("sessions")
-        .update({ capacity, weekday_time: p.weekday_time })
-        .eq("id", existing.id);
-    } else {
-      await sb.from("sessions").insert({
-        season_id: id,
-        date: p.date,
-        weekday_time: p.weekday_time,
-        capacity,
-        status: "scheduled",
-      });
+      sessionsSkipped += 1;
+      continue;
     }
+    const { error: insertErr } = await sb.from("sessions").insert({
+      season_id: id,
+      date: p.date,
+      weekday_time: p.weekday_time,
+      capacity,
+      status: "scheduled",
+    });
+    if (!insertErr) sessionsCreated += 1;
   }
 
   // Confirm all opted-in subscriptions.
@@ -139,7 +140,10 @@ export async function POST(
   await writeAudit(session.sub, "book_season", "season", id, season, updatedSeason);
   return NextResponse.json({
     ok: true,
+    // Back-compat alias: total planned by the template (created + skipped).
     sessionsGenerated: planned.length,
+    sessionsCreated,
+    sessionsSkipped,
     subscribersConfirmed: subs?.length ?? 0,
   });
 }

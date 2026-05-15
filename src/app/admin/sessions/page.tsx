@@ -53,6 +53,7 @@ interface S {
   id: string;
   date: string;
   weekday_time: string;
+  location: string | null;
   capacity: number;
   status: string;
 }
@@ -63,6 +64,7 @@ function SessionTable({ rows }: { rows: S[] }) {
         <TR>
           <TH>Date</TH>
           <TH>Slot</TH>
+          <TH>Location</TH>
           <TH>Capacity</TH>
           <TH>Status</TH>
           <TH className="text-right">Actions</TH>
@@ -73,6 +75,7 @@ function SessionTable({ rows }: { rows: S[] }) {
           <TR key={r.id}>
             <TD>{formatDate(r.date)}</TD>
             <TD>{r.weekday_time}</TD>
+            <TD className="text-sm text-muted-foreground">{r.location ?? "—"}</TD>
             <TD>{r.capacity}</TD>
             <TD>
               <Badge>{r.status}</Badge>

@@ -10,7 +10,9 @@ import {
   BulkConfirmButton,
 } from "@/components/admin/payment-row-actions";
 import { SessionTikkieUrlForm } from "@/components/admin/session-tikkie-url-form";
+import { SessionEditForm } from "@/components/admin/session-edit-form";
 import { formatDate } from "@/lib/format";
+import type { SessionStatus } from "@/lib/db/types";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -61,10 +63,29 @@ export default async function AdminSessionDetail({ params }: Props) {
         </Link>
         <h1 className="mt-2 text-2xl font-bold">{formatDate(sess.date)}</h1>
         <p className="text-sm text-muted-foreground">
-          {sess.weekday_time} · {confirmed}/{sess.capacity} confirmed · {owed} owed
-          · {selfMarked} self-marked
+          {sess.weekday_time}
+          {sess.location ? ` · 📍 ${sess.location}` : ""} · {confirmed}/
+          {sess.capacity} confirmed · {owed} owed · {selfMarked} self-marked
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Edit details</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SessionEditForm
+            session={{
+              id: sess.id,
+              date: sess.date,
+              weekday_time: sess.weekday_time,
+              location: sess.location ?? null,
+              capacity: sess.capacity,
+              status: sess.status as SessionStatus,
+            }}
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

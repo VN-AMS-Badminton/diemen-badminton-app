@@ -63,6 +63,7 @@ export interface SessionRow {
   weekday_time: string;
   capacity: number;
   tikkie_url: string | null;
+  location: string | null;
   status: SessionStatus;
   created_at: string;
   updated_at: string;

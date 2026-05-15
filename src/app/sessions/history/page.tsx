@@ -13,7 +13,7 @@ export default async function HistoryPage() {
   const { data } = await sb
     .from("attendance")
     .select(
-      "id, rsvp_status, payment_status, source, sessions:session_id(date, weekday_time)",
+      "id, rsvp_status, payment_status, source, sessions:session_id(date, weekday_time, location)",
     )
     .eq("player_id", session.sub)
     .order("created_at", { ascending: false });
@@ -23,7 +23,7 @@ export default async function HistoryPage() {
     rsvp_status: string;
     payment_status: string;
     source: string;
-    sessions: { date: string; weekday_time: string } | null;
+    sessions: { date: string; weekday_time: string; location: string | null } | null;
   };
   const rows = (data ?? []) as unknown as Row[];
 
@@ -65,6 +65,11 @@ export default async function HistoryPage() {
                 <TR key={r.id}>
                   <TD className="font-medium">
                     {r.sessions ? formatDate(r.sessions.date) : "—"}
+                    {r.sessions?.location && (
+                      <div className="text-xs font-normal text-muted-foreground">
+                        📍 {r.sessions.location}
+                      </div>
+                    )}
                   </TD>
                   <TD className="text-muted-foreground">
                     {r.source === "subscription" ? "Subscription" : "Drop-in"}

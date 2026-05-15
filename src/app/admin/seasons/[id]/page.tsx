@@ -6,6 +6,8 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { BookSeasonForm } from "@/components/admin/book-season-form";
+import { SessionCreateForm } from "@/components/admin/session-create-form";
+import { SessionDeleteButton } from "@/components/admin/session-delete-button";
 import { formatDate, formatDateTime } from "@/lib/format";
 
 interface Props {
@@ -39,11 +41,24 @@ export default async function SeasonDetailPage({ params }: Props) {
 
   const { data: sessions } = await sb
     .from("sessions")
-    .select("*")
+    .select("*, attendance(count)")
     .eq("season_id", id)
     .order("date");
 
+  type SessionWithCount = {
+    id: string;
+    date: string;
+    weekday_time: string;
+    location: string | null;
+    capacity: number;
+    status: string;
+    attendance: { count: number }[];
+  };
+  const sessionRows = (sessions ?? []) as unknown as SessionWithCount[];
+
   const canBook = season.status === "poll" || season.status === "booked";
+  const canAddSessions = season.status === "booked" || season.status === "active";
+  const lastSession = sessionRows[sessionRows.length - 1];
 
   return (
     <div className="space-y-6">
@@ -119,10 +134,10 @@ export default async function SeasonDetailPage({ params }: Props) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Sessions ({sessions?.length ?? 0})</CardTitle>
+          <CardTitle>Sessions ({sessionRows.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          {(sessions ?? []).length === 0 ? (
+          {sessionRows.length === 0 ? (
             <EmptyState title="No sessions yet" />
           ) : (
             <Table>
@@ -130,26 +145,71 @@ export default async function SeasonDetailPage({ params }: Props) {
                 <TR>
                   <TH>Date</TH>
                   <TH>Slot</TH>
+                  <TH>Location</TH>
                   <TH>Capacity</TH>
                   <TH>Status</TH>
+                  <TH className="text-right">Actions</TH>
                 </TR>
               </THead>
               <TBody>
-                {(sessions ?? []).map((s) => (
-                  <TR key={s.id}>
-                    <TD>{formatDate(s.date)}</TD>
-                    <TD>{s.weekday_time}</TD>
-                    <TD>{s.capacity}</TD>
-                    <TD>
-                      <Badge>{s.status}</Badge>
-                    </TD>
-                  </TR>
-                ))}
+                {sessionRows.map((s) => {
+                  const rsvpCount = s.attendance?.[0]?.count ?? 0;
+                  return (
+                    <TR key={s.id}>
+                      <TD>{formatDate(s.date)}</TD>
+                      <TD>{s.weekday_time}</TD>
+                      <TD className="text-sm text-muted-foreground">
+                        {s.location ?? "—"}
+                      </TD>
+                      <TD>{s.capacity}</TD>
+                      <TD>
+                        <Badge>{s.status}</Badge>
+                      </TD>
+                      <TD className="text-right">
+                        <div className="inline-flex items-center gap-2">
+                          <Link
+                            href={`/admin/sessions/${s.id}`}
+                            className="text-sm text-primary underline-offset-2 hover:underline"
+                          >
+                            Edit
+                          </Link>
+                          <SessionDeleteButton
+                            sessionId={s.id}
+                            rsvpCount={rsvpCount}
+                            sessionLabel={`${formatDate(s.date)} ${s.weekday_time}`}
+                          />
+                        </div>
+                      </TD>
+                    </TR>
+                  );
+                })}
               </TBody>
             </Table>
           )}
         </CardContent>
       </Card>
+
+      {canAddSessions && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Add a session</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-3 text-sm text-muted-foreground">
+              Add one session to this season with its own date, time, and
+              location. Confirmed subscribers are automatically RSVP&apos;d.
+            </p>
+            <SessionCreateForm
+              seasonId={season.id}
+              defaults={{
+                weekday_time: lastSession?.weekday_time,
+                location: lastSession?.location,
+                capacity: lastSession?.capacity,
+              }}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

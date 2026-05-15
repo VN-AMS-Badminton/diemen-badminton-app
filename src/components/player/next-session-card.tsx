@@ -49,6 +49,11 @@ export function NextSessionCard({
           <span className="text-brand tabular-nums">{time}</span>
         </CardTitle>
         <CardDescription>{formatDate(session.date)}</CardDescription>
+        {session.location && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            📍 {session.location}
+          </p>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {/* State 1: Subscriber, IN */}
