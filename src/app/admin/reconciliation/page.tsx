@@ -3,10 +3,7 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import {
-  PaymentRowActions,
-  BulkConfirmButton,
-} from "@/components/admin/payment-row-actions";
+import { PaymentRowActions } from "@/components/admin/payment-row-actions";
 import { formatDate } from "@/lib/format";
 
 export default async function ReconciliationPage() {
@@ -134,7 +131,6 @@ export default async function ReconciliationPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <BulkConfirmButton sessionId={session.id} />
             {attRows.length === 0 ? (
               <EmptyState title="No attendees yet" />
             ) : (

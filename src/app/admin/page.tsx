@@ -40,7 +40,7 @@ export default async function AdminHome() {
         .from("attendance")
         .select("id", { count: "exact", head: true })
         .eq("session_id", id)
-        .eq("payment_status", "admin_confirmed"),
+        .in("payment_status", ["admin_confirmed", "self_marked_paid"]),
     ]);
     attendingCount = att.count ?? 0;
     paidCount = paid.count ?? 0;

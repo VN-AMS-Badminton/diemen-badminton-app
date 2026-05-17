@@ -32,7 +32,7 @@ export function PaymentBlock({
   }
 
   function markPaid() {
-    setOptimisticStatus("self_marked_paid");
+    setOptimisticStatus("admin_confirmed");
     startTransition(async () => {
       const res = await fetch("/api/me/mark-paid", {
         method: "POST",
@@ -47,20 +47,22 @@ export function PaymentBlock({
     });
   }
 
+  const isPaid =
+    optimisticStatus === "admin_confirmed" ||
+    optimisticStatus === "self_marked_paid";
+
   return (
     <div className="rounded-md border bg-muted/30 p-4 space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium">{label}</p>
-        {optimisticStatus === "admin_confirmed" ? (
-          <Badge variant="success">Paid (confirmed)</Badge>
-        ) : optimisticStatus === "self_marked_paid" ? (
-          <Badge variant="warning">Marked paid — pending</Badge>
+        {isPaid ? (
+          <Badge variant="success">Paid</Badge>
         ) : (
           <Badge variant="destructive">Owed: {formatEuros(amountCents)}</Badge>
         )}
       </div>
 
-      {optimisticStatus !== "admin_confirmed" && (
+      {!isPaid && (
         <>
           <p className="text-sm">
             Pay <strong>{formatEuros(amountCents)}</strong> via Tikkie and put
@@ -76,16 +78,14 @@ export function PaymentBlock({
             <Button size="sm" variant="outline" onClick={copyUsername}>
               Copy username
             </Button>
-            {optimisticStatus === "owed" && (
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={markPaid}
-                disabled={pending}
-              >
-                I paid
-              </Button>
-            )}
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={markPaid}
+              disabled={pending}
+            >
+              I paid
+            </Button>
           </div>
         </>
       )}

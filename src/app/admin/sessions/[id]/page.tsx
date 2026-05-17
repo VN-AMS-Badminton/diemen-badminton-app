@@ -5,10 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import {
-  PaymentRowActions,
-  BulkConfirmButton,
-} from "@/components/admin/payment-row-actions";
+import { PaymentRowActions } from "@/components/admin/payment-row-actions";
 import { SessionTikkieUrlForm } from "@/components/admin/session-tikkie-url-form";
 import { SessionEditForm } from "@/components/admin/session-edit-form";
 import { formatDate } from "@/lib/format";
@@ -71,9 +68,6 @@ export default async function AdminSessionDetail({ params }: Props) {
   const owed = rows.filter(
     (r) => r.rsvp_status === "in" && r.payment_status === "owed",
   ).length;
-  const selfMarked = rows.filter(
-    (r) => r.rsvp_status === "in" && r.payment_status === "self_marked_paid",
-  ).length;
 
   return (
     <div className="space-y-6">
@@ -88,7 +82,7 @@ export default async function AdminSessionDetail({ params }: Props) {
         <p className="text-sm text-muted-foreground">
           {sess.weekday_time}
           {sess.location ? ` · 📍 ${sess.location}` : ""} · {confirmed}/
-          {sess.capacity} confirmed · {owed} owed · {selfMarked} self-marked
+          {sess.capacity} confirmed · {owed} owed
         </p>
       </div>
 
@@ -127,7 +121,6 @@ export default async function AdminSessionDetail({ params }: Props) {
           <CardTitle>Attendees</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <BulkConfirmButton sessionId={sess.id} />
           {rows.length === 0 ? (
             <EmptyState title="No attendees yet" />
           ) : (
