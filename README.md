@@ -10,7 +10,7 @@ Stack: Next.js 15 (App Router, TS) + Supabase (Postgres + RLS) + Tailwind + shad
 
 ## Local Development
 
-### 1. Install Node 20+
+### 1. Install Node 24+
 
 ```bash
 nvm use
