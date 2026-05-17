@@ -1,4 +1,5 @@
 import { createServerSupabase } from "@/lib/supabase/server";
+import { resolveCutoffIfDue } from "@/lib/sessions/resolve-cutoff";
 import type {
   SessionRow,
   AttendanceRow,
@@ -34,6 +35,9 @@ export async function getNextSession(
 
   if (!session) return null;
 
+  // Lazy cutoff resolver — no-op pre-cutoff or if already resolved.
+  await resolveCutoffIfDue(session.id);
+
   const [seasonRes, attRes, subRes, countRes, seasonSessionCountRes] = await Promise.all([
     sb.from("seasons").select("*").eq("id", session.season_id).maybeSingle(),
     sb
@@ -52,7 +56,8 @@ export async function getNextSession(
       .from("attendance")
       .select("id", { count: "exact", head: true })
       .eq("session_id", session.id)
-      .eq("rsvp_status", "in"),
+      .eq("rsvp_status", "in")
+      .is("bumped_at", null),
     sb
       .from("sessions")
       .select("id", { count: "exact", head: true })

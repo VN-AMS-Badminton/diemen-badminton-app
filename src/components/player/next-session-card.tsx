@@ -18,10 +18,12 @@ export function NextSessionCard({
   data,
   username,
   subscriptionRow,
+  waitlist,
 }: {
   data: NextSessionData | null;
   username: string;
   subscriptionRow: { id: string; status: string } | null;
+  waitlist?: { position: number; total: number } | null;
 }) {
   if (!data) {
     return (
@@ -38,6 +40,7 @@ export function NextSessionCard({
     !!subscriptionRow &&
     (subscriptionRow.status === "confirmed" || subscriptionRow.status === "paid");
   const subscriberSlot = attendance?.source === "subscription";
+  const isWaitlisted = attendance?.rsvp_status === "waitlisted";
   const time = session.weekday_time.split(" ").slice(-1)[0];
 
   return (
@@ -150,11 +153,44 @@ export function NextSessionCard({
           </>
         )}
 
-        {/* State 5: Non-subscriber, full (or previously cancelled drop-in) */}
+        {/* State 5: Non-subscriber, full (or previously cancelled drop-in) — offer waitlist */}
         {!isSubscriber && (!attendance || attendance.rsvp_status === "cancelled") && remaining === 0 && (
-          <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-            Session is full this week.
-          </div>
+          <>
+            <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+              Session is full this week — join the waitlist and you&apos;ll be
+              auto-promoted if a seat opens.
+            </div>
+            <RsvpAction
+              sessionId={session.id}
+              action="drop_in_rsvp"
+              label="Join waitlist"
+              variant="outline"
+            />
+          </>
+        )}
+
+        {/* State 6: Waitlisted */}
+        {isWaitlisted && (
+          <>
+            <div className="flex items-center justify-between gap-2">
+              <Badge variant="warning">Waitlisted</Badge>
+              {waitlist && waitlist.total > 0 && (
+                <span className="text-sm font-medium text-muted-foreground tabular-nums">
+                  #{waitlist.position} of {waitlist.total}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              You&apos;ll be auto-promoted if a seat opens. At 24h before the
+              session, waitlisted members take priority over tentative guests.
+            </p>
+            <RsvpAction
+              sessionId={session.id}
+              action="waitlist_leave"
+              label="Leave waitlist"
+              variant="outline"
+            />
+          </>
         )}
 
         {/* Subscription payment block when applicable */}

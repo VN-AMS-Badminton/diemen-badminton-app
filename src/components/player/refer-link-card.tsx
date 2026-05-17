@@ -8,119 +8,154 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatDate } from "@/lib/format";
+import type { MyReferralRow, ReferralRowStatus } from "@/lib/referrals/list-my-referrals";
 
-interface Props {
-  // Pre-fetched on the server when the user already has an active invite.
-  initialCode: string | null;
+interface Payload {
+  code: string;
+  remainingSlots: number;
+  cap: number;
+  monthResetDate: string;
+  referrals: MyReferralRow[];
 }
 
-// Dashboard widget — one active referral link per member. If a code is
-// already active it is shown immediately with Copy + Revoke. Otherwise the
-// Create button surfaces a fresh single-use link.
-export function ReferLinkCard({ initialCode }: Props) {
-  const [code, setCode] = React.useState<string | null>(initialCode);
+// Dashboard widget: permanent link + cap state + referral history. No
+// generate/revoke buttons — every active member has one code for life. The
+// per-row Cancel button is the only mutation surface here.
+export function ReferLinkCard({ initial }: { initial: Payload }) {
+  const [payload, setPayload] = React.useState<Payload>(initial);
   const [copied, setCopied] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [pending, startTransition] = React.useTransition();
+  const [pendingId, setPendingId] = React.useState<string | null>(null);
 
   const link = React.useMemo(() => {
-    if (!code) return null;
     const base =
       process.env.NEXT_PUBLIC_APP_URL ??
       (typeof window !== "undefined" ? window.location.origin : "");
-    return `${base}/refer/${code}`;
-  }, [code]);
-
-  function generate() {
-    setError(null);
-    setCopied(false);
-    startTransition(async () => {
-      const res = await fetch("/api/me/referrals", { method: "POST" });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data?.error ?? "Could not create link");
-        return;
-      }
-      const data = await res.json();
-      setCode(data.code);
-    });
-  }
-
-  function revoke() {
-    if (!confirm("Revoke this link? Your friend won't be able to use it anymore.")) {
-      return;
-    }
-    setError(null);
-    setCopied(false);
-    startTransition(async () => {
-      const res = await fetch("/api/me/referrals", { method: "DELETE" });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data?.error ?? "Could not revoke link");
-        return;
-      }
-      setCode(null);
-    });
-  }
+    return `${base}/refer/${payload.code}`;
+  }, [payload.code]);
 
   async function copy() {
-    if (!link) return;
     try {
       await navigator.clipboard.writeText(link);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard might be blocked; user can long-press the code to copy.
+      // clipboard blocked — fallback handled visually
     }
   }
+
+  async function refresh() {
+    const res = await fetch("/api/me/referrals");
+    if (!res.ok) return;
+    const data = await res.json();
+    setPayload({
+      code: data.code,
+      remainingSlots: data.remainingSlots,
+      cap: data.cap,
+      monthResetDate: data.monthResetDate,
+      referrals: data.referrals ?? [],
+    });
+  }
+
+  async function cancelReferral(attendanceId: string) {
+    setError(null);
+    setPendingId(attendanceId);
+    try {
+      const res = await fetch(`/api/me/referrals/${attendanceId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data?.error ?? "Could not cancel referral");
+        return;
+      }
+      await refresh();
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  const capExhausted = payload.remainingSlots === 0;
 
   return (
     <Card>
       <CardHeader>
         <p className="overline">Refer a friend</p>
-        <CardTitle>Give a free trial</CardTitle>
+        <CardTitle>Your permanent link</CardTitle>
         <CardDescription>
-          One reusable link until a friend claims it. After they sign up you
-          can generate a new one. Their next session uses the standard drop-in
-          fee.
+          Share once. Each friend gets one free trial; you get up to {payload.cap}{" "}
+          referrals per calendar month.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {!code && (
-          <Button onClick={generate} disabled={pending} className="w-full">
-            {pending ? "Generating..." : "Create referral link"}
-          </Button>
-        )}
-        {code && link && (
-          <div className="space-y-2 rounded-md border bg-muted/30 p-3 text-sm">
-            <code className="block break-all rounded bg-background px-2 py-1.5 text-xs">
-              {link}
-            </code>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                size="sm"
-                onClick={copy}
-                className="flex-1"
-              >
-                {copied ? "Copied!" : "Copy link"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={revoke}
-                disabled={pending}
-              >
-                Revoke
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Share via WhatsApp. Revoke if you want a fresh link.
-            </p>
+      <CardContent className="space-y-4">
+        <div className="space-y-2 rounded-md border bg-muted/30 p-3 text-sm">
+          <code className="block break-all rounded bg-background px-2 py-1.5 text-xs">
+            {link}
+          </code>
+          <div className="flex gap-2">
+            <Button type="button" size="sm" onClick={copy} className="flex-1">
+              {copied ? "Copied!" : "Copy link"}
+            </Button>
+          </div>
+        </div>
+
+        <div
+          className={
+            capExhausted
+              ? "rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100"
+              : "rounded-md bg-muted/50 px-3 py-2 text-sm"
+          }
+        >
+          <span className="font-bold tabular-nums">
+            {payload.remainingSlots} / {payload.cap}
+          </span>{" "}
+          referrals left this month
+          {capExhausted && (
+            <>
+              {" "}— link won&apos;t accept new sign-ups until{" "}
+              <span className="font-medium">
+                {formatDate(payload.monthResetDate)}
+              </span>
+              .
+            </>
+          )}
+        </div>
+
+        {payload.referrals.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">My referrals</p>
+            <ul className="space-y-1.5">
+              {payload.referrals.map((r) => (
+                <li
+                  key={r.attendanceId}
+                  className="flex items-center justify-between gap-2 rounded-md border bg-card px-3 py-2 text-sm"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium">{r.guestName}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {r.sessionDate ? formatDate(r.sessionDate) : "—"}
+                    </div>
+                  </div>
+                  <StatusChip status={r.status} />
+                  {r.status === "tentative" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={pendingId === r.attendanceId}
+                      onClick={() => cancelReferral(r.attendanceId)}
+                    >
+                      {pendingId === r.attendanceId ? "…" : "Cancel"}
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
+
         {error && (
           <p className="text-sm font-medium text-destructive" role="alert">
             {error}
@@ -129,4 +164,16 @@ export function ReferLinkCard({ initialCode }: Props) {
       </CardContent>
     </Card>
   );
+}
+
+function StatusChip({ status }: { status: ReferralRowStatus }) {
+  const map: Record<ReferralRowStatus, { label: string; variant: "success" | "warning" | "secondary" | "brand" | "outline" }> = {
+    tentative: { label: "tentative", variant: "brand" },
+    locked: { label: "locked", variant: "success" },
+    attended: { label: "attended", variant: "success" },
+    bumped: { label: "bumped", variant: "warning" },
+    cancelled: { label: "cancelled", variant: "secondary" },
+  };
+  const cfg = map[status];
+  return <Badge variant={cfg.variant}>{cfg.label}</Badge>;
 }

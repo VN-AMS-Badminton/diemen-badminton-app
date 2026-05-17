@@ -11,7 +11,7 @@ export type SubscriptionStatus =
   | "cancelled";
 export type SessionStatus = "scheduled" | "done" | "cancelled";
 export type AttendanceSource = "subscription" | "drop_in" | "passed" | "referral";
-export type RsvpStatus = "in" | "opted_out" | "cancelled";
+export type RsvpStatus = "in" | "opted_out" | "cancelled" | "waitlisted";
 export type PaymentStatus =
   | "n_a"
   | "owed"
@@ -32,6 +32,8 @@ export interface PlayerRow {
   referred_by: string | null;
   // Flipped true when a referred player consumes their one free session.
   free_trial_used: boolean;
+  // Permanent opaque referral code. Null for non-active members and guests.
+  referral_code: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -72,6 +74,10 @@ export interface SessionRow {
   // Venue label. Mandatory on every session (DB NOT NULL).
   location: string;
   status: SessionStatus;
+  // Real start timestamp (UTC). Used for cutoff queries.
+  start_at: string;
+  // Set when resolve_session_cutoff has run; idempotency marker.
+  cutoff_resolved_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -85,6 +91,10 @@ export interface AttendanceRow {
   payment_status: PaymentStatus;
   marked_by: string | null;
   bunq_payment_id: string | null;
+  // Referral lifecycle flags. Decoupled so cap accounting stays simple.
+  is_tentative: boolean;
+  bumped_at: string | null;
+  cap_consumed: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -97,9 +107,6 @@ export interface InviteRow {
   max_uses: number;
   uses_count: number;
   revoked: boolean;
-  // Set when invite activates a pre-created pending referral player instead of
-  // creating a new account on registration.
-  target_player_id: string | null;
   created_at: string;
 }
 
@@ -166,7 +173,12 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      resolve_session_cutoff: {
+        Args: { p_session_id: string };
+        Returns: void;
+      };
+    };
     Enums: {
       player_role: PlayerRole;
       player_status: PlayerStatus;

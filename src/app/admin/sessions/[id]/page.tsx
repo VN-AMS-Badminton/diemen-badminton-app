@@ -8,6 +8,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PaymentRowActions } from "@/components/admin/payment-row-actions";
 import { SessionTikkieUrlForm } from "@/components/admin/session-tikkie-url-form";
 import { SessionEditForm } from "@/components/admin/session-edit-form";
+import { RefundSlotButton } from "@/components/admin/refund-slot-button";
+import { resolveCutoffIfDue } from "@/lib/sessions/resolve-cutoff";
 import { formatDate } from "@/lib/format";
 import type { SessionStatus } from "@/lib/db/types";
 
@@ -18,6 +20,8 @@ interface Props {
 export default async function AdminSessionDetail({ params }: Props) {
   const { id } = await params;
   const sb = createServerSupabase();
+  // Resolve cutoff before reading attendance so admin sees post-cutoff state.
+  await resolveCutoffIfDue(id);
   const { data: sess } = await sb
     .from("sessions")
     .select("*")
@@ -30,8 +34,12 @@ export default async function AdminSessionDetail({ params }: Props) {
     source: string;
     rsvp_status: string;
     payment_status: string;
+    is_tentative: boolean;
+    bumped_at: string | null;
+    created_at: string;
     players: {
       username: string;
+      display_name: string | null;
       whatsapp_number: string;
       referred_by: string | null;
     } | null;
@@ -39,11 +47,15 @@ export default async function AdminSessionDetail({ params }: Props) {
   const { data } = await sb
     .from("attendance")
     .select(
-      "id, source, rsvp_status, payment_status, players:player_id(username, whatsapp_number, referred_by)",
+      "id, source, rsvp_status, payment_status, is_tentative, bumped_at, created_at, players:player_id(username, display_name, whatsapp_number, referred_by)",
     )
     .eq("session_id", id)
     .order("rsvp_status", { ascending: true });
   const rows = (data ?? []) as unknown as R[];
+  const attendeeRows = rows.filter((r) => r.rsvp_status !== "waitlisted");
+  const waitlistRows = rows
+    .filter((r) => r.rsvp_status === "waitlisted")
+    .sort((a, b) => a.created_at.localeCompare(b.created_at));
 
   // Resolve referrer display names so admin can see who invited each referral.
   const referrerIds = Array.from(
@@ -64,8 +76,14 @@ export default async function AdminSessionDetail({ params }: Props) {
     }
   }
 
-  const confirmed = rows.filter((r) => r.rsvp_status === "in").length;
-  const owed = rows.filter(
+  const confirmed = attendeeRows.filter(
+    (r) => r.rsvp_status === "in" && r.bumped_at === null,
+  ).length;
+  const tentativeCount = attendeeRows.filter(
+    (r) => r.rsvp_status === "in" && r.is_tentative && r.bumped_at === null,
+  ).length;
+  const bumpedCount = attendeeRows.filter((r) => r.bumped_at !== null).length;
+  const owed = attendeeRows.filter(
     (r) => r.rsvp_status === "in" && r.payment_status === "owed",
   ).length;
 
@@ -83,6 +101,11 @@ export default async function AdminSessionDetail({ params }: Props) {
           {sess.weekday_time}
           {sess.location ? ` · 📍 ${sess.location}` : ""} · {confirmed}/
           {sess.capacity} confirmed · {owed} owed
+          {tentativeCount > 0 ? ` · ${tentativeCount} tentative` : ""}
+          {bumpedCount > 0 ? ` · ${bumpedCount} bumped` : ""}
+          {waitlistRows.length > 0
+            ? ` · ${waitlistRows.length} waitlisted`
+            : ""}
         </p>
       </div>
 
@@ -121,7 +144,7 @@ export default async function AdminSessionDetail({ params }: Props) {
           <CardTitle>Attendees</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {rows.length === 0 ? (
+          {attendeeRows.length === 0 ? (
             <EmptyState title="No attendees yet" />
           ) : (
             <Table>
@@ -135,35 +158,49 @@ export default async function AdminSessionDetail({ params }: Props) {
                 </TR>
               </THead>
               <TBody>
-                {rows.map((r) => {
+                {attendeeRows.map((r) => {
                   const referrerName = r.players?.referred_by
                     ? referrerById.get(r.players.referred_by)
                     : null;
+                  const isReferralGuest = r.source === "referral";
+                  const isBumped = !!r.bumped_at;
                   return (
                   <TR key={r.id}>
                     <TD>
-                      <div className="font-medium">{r.players?.username}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {r.players?.whatsapp_number}
+                      <div className="font-medium">
+                        {isReferralGuest && r.players?.display_name
+                          ? r.players.display_name
+                          : r.players?.username}
                       </div>
+                      {!isReferralGuest && (
+                        <div className="text-xs text-muted-foreground">
+                          {r.players?.whatsapp_number}
+                        </div>
+                      )}
                       {referrerName && (
                         <div className="text-xs text-muted-foreground">
-                          Referred by {referrerName}
+                          guest of {referrerName}
                         </div>
                       )}
                     </TD>
                     <TD>
-                      <Badge
-                        variant={
-                          r.source === "referral"
-                            ? "brand"
-                            : r.source === "passed"
-                              ? "warning"
-                              : "secondary"
-                        }
-                      >
-                        {r.source === "subscription" ? "sub" : r.source}
-                      </Badge>
+                      <div className="flex flex-wrap gap-1">
+                        <Badge
+                          variant={
+                            r.source === "referral"
+                              ? "brand"
+                              : r.source === "passed"
+                                ? "warning"
+                                : "secondary"
+                          }
+                        >
+                          {r.source === "subscription" ? "sub" : r.source}
+                        </Badge>
+                        {r.is_tentative && !isBumped && (
+                          <Badge variant="warning">tentative</Badge>
+                        )}
+                        {isBumped && <Badge variant="destructive">bumped</Badge>}
+                      </div>
                     </TD>
                     <TD>
                       <Badge
@@ -194,12 +231,17 @@ export default async function AdminSessionDetail({ params }: Props) {
                       </Badge>
                     </TD>
                     <TD>
-                      {r.payment_status !== "n_a" && (
-                        <PaymentRowActions
-                          attendanceId={r.id}
-                          currentStatus={r.payment_status}
-                        />
-                      )}
+                      <div className="flex flex-col items-end gap-1">
+                        {r.payment_status !== "n_a" && (
+                          <PaymentRowActions
+                            attendanceId={r.id}
+                            currentStatus={r.payment_status}
+                          />
+                        )}
+                        {isReferralGuest && (isBumped || r.rsvp_status === "cancelled") && (
+                          <RefundSlotButton attendanceId={r.id} />
+                        )}
+                      </div>
                     </TD>
                   </TR>
                   );
@@ -209,6 +251,41 @@ export default async function AdminSessionDetail({ params }: Props) {
           )}
         </CardContent>
       </Card>
+
+      {waitlistRows.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Waitlist · {waitlistRows.length}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <THead>
+                <TR>
+                  <TH>#</TH>
+                  <TH>Player</TH>
+                  <TH>Joined</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {waitlistRows.map((r, i) => (
+                  <TR key={r.id}>
+                    <TD className="tabular-nums">{i + 1}</TD>
+                    <TD>
+                      <div className="font-medium">{r.players?.username}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {r.players?.whatsapp_number}
+                      </div>
+                    </TD>
+                    <TD className="text-xs text-muted-foreground">
+                      {formatDate(r.created_at.slice(0, 10))}
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

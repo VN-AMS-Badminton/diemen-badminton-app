@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { PlayerDetail } from "@/components/admin/player-detail";
+import { ResetTrialButton } from "@/components/admin/reset-trial-button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/format";
@@ -46,7 +47,7 @@ export default async function PlayerDetailPage({ params }: Props) {
         </Link>
         <h1 className="mt-2 text-2xl font-bold">{player.username}</h1>
         {referrer && (
-          <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <Badge variant="brand">Referral</Badge>
             <span>
               Invited by{" "}
@@ -60,7 +61,10 @@ export default async function PlayerDetailPage({ params }: Props) {
                 ? " · free trial used"
                 : " · free trial unused"}
             </span>
-          </p>
+            {player.free_trial_used && (
+              <ResetTrialButton playerId={player.id} />
+            )}
+          </div>
         )}
       </div>
       <PlayerDetail

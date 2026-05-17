@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { activateReferralAndRsvp } from "@/lib/referrals/activate-referral";
+import { getOptionalSession } from "@/lib/auth/get-session";
+import { resolveCutoffIfDue } from "@/lib/sessions/resolve-cutoff";
 
 // Public endpoint (no session required) — called from /refer/<code> when a
 // guest submits their name + selected session date. Creates the guest player
@@ -26,10 +28,16 @@ export async function POST(req: Request) {
     );
   }
 
+  // Resolve cutoff on the target session so capacity reads are post-cutoff.
+  await resolveCutoffIfDue(parsed.data.sessionId);
+
+  const caller = await getOptionalSession();
+
   const result = await activateReferralAndRsvp({
     code: parsed.data.code,
     displayName: parsed.data.displayName,
     sessionId: parsed.data.sessionId,
+    callerId: caller?.sub ?? null,
   });
 
   if (!result.ok) {
@@ -38,5 +46,6 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     sessionDate: result.sessionDate,
+    lockedAtSignup: !!result.lockedAtSignup,
   });
 }

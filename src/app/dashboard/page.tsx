@@ -6,7 +6,13 @@ import { getActivePoll } from "@/lib/seasons/get-active-poll";
 import { NextSessionCard } from "@/components/player/next-session-card";
 import { SeasonPollCard } from "@/components/player/season-poll-card";
 import { ReferLinkCard } from "@/components/player/refer-link-card";
-import { getActiveReferralInvite } from "@/lib/referrals/get-active-referral-invite";
+import { getOrCreatePermanentCode } from "@/lib/referrals/get-or-create-permanent-code";
+import {
+  getRemainingSlots,
+  MONTHLY_REFERRAL_CAP,
+} from "@/lib/referrals/get-remaining-slots";
+import { listMyReferrals } from "@/lib/referrals/list-my-referrals";
+import { getWaitlistPosition } from "@/lib/waitlist/get-waitlist-position";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -91,11 +97,14 @@ export default async function DashboardPage() {
                 .then((r) => r.data ?? null)
             : null
         }
+        waitlist={
+          next ? await getWaitlistPosition(next.session.id, session.sub) : null
+        }
       />
 
       {player.status === "active" && (
         <ReferLinkCard
-          initialCode={(await getActiveReferralInvite(session.sub))?.code ?? null}
+          initial={await buildReferLinkPayload(session.sub)}
         />
       )}
 
@@ -115,4 +124,34 @@ export default async function DashboardPage() {
       </nav>
     </main>
   );
+}
+
+async function buildReferLinkPayload(memberId: string) {
+  const codeRes = await getOrCreatePermanentCode(memberId);
+  const code = codeRes.ok && codeRes.code ? codeRes.code : "";
+  const [remainingSlots, referrals] = await Promise.all([
+    getRemainingSlots(memberId),
+    listMyReferrals(memberId),
+  ]);
+  return {
+    code,
+    remainingSlots,
+    cap: MONTHLY_REFERRAL_CAP,
+    monthResetDate: firstOfNextMonthAmsterdam(),
+    referrals,
+  };
+}
+
+function firstOfNextMonthAmsterdam(): string {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Amsterdam",
+    year: "numeric",
+    month: "2-digit",
+  });
+  const parts = fmt.formatToParts(new Date());
+  const y = Number(parts.find((p) => p.type === "year")?.value);
+  const m = Number(parts.find((p) => p.type === "month")?.value);
+  const ny = m === 12 ? y + 1 : y;
+  const nm = m === 12 ? 1 : m + 1;
+  return `${ny}-${String(nm).padStart(2, "0")}-01`;
 }

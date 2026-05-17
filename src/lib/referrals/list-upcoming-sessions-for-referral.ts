@@ -9,11 +9,18 @@ export interface UpcomingSessionRow {
   capacity: number;
   confirmedCount: number;
   full: boolean;
+  startAt: string;
+  // True when this session is within 24h of starting — UI labels these as
+  // "no tentative window; spot is final" and admits them only with seats free.
+  subCutoff: boolean;
 }
 
-// Returns scheduled sessions still in the future, from today through the end
-// of the NEXT calendar month. The wider window covers the end-of-month case
-// where a fresh referral link only has next-month options to offer.
+const CUTOFF_MS = 24 * 60 * 60 * 1000;
+
+// Returns scheduled sessions still in the future, up through the end of the
+// next calendar month. Sub-24h sessions are included when seats remain so the
+// guest page can offer them as "final spot" rows; downstream UI excludes them
+// when full.
 export async function listUpcomingSessionsForReferral(): Promise<
   UpcomingSessionRow[]
 > {
@@ -21,14 +28,13 @@ export async function listUpcomingSessionsForReferral(): Promise<
 
   const now = new Date();
   const todayIso = now.toISOString().slice(0, 10);
-  // Last day of NEXT month (month+2 with day=0 in JS Date wraps to last of prev).
   const windowEnd = new Date(now.getFullYear(), now.getMonth() + 2, 0)
     .toISOString()
     .slice(0, 10);
 
   const { data: sessions } = await sb
     .from("sessions")
-    .select("id, date, weekday_time, location, capacity, status")
+    .select("id, date, weekday_time, location, capacity, status, start_at")
     .eq("status", "scheduled")
     .gte("date", todayIso)
     .lte("date", windowEnd)
@@ -39,25 +45,35 @@ export async function listUpcomingSessionsForReferral(): Promise<
   const ids = sessions.map((s) => s.id);
   const { data: attendance } = await sb
     .from("attendance")
-    .select("session_id")
+    .select("session_id, bumped_at")
     .in("session_id", ids)
-    .eq("rsvp_status", "in");
+    .eq("rsvp_status", "in")
+    .is("bumped_at", null);
 
   const counts = new Map<string, number>();
   for (const a of attendance ?? []) {
     counts.set(a.session_id, (counts.get(a.session_id) ?? 0) + 1);
   }
 
-  return sessions.map((s) => {
-    const confirmedCount = counts.get(s.id) ?? 0;
-    return {
-      id: s.id,
-      date: s.date,
-      weekdayTime: s.weekday_time,
-      location: s.location,
-      capacity: s.capacity,
-      confirmedCount,
-      full: confirmedCount >= s.capacity,
-    };
-  });
+  const nowMs = now.getTime();
+  return sessions
+    .map((s) => {
+      const confirmedCount = counts.get(s.id) ?? 0;
+      const startMs = new Date(s.start_at).getTime();
+      const subCutoff = startMs - nowMs < CUTOFF_MS;
+      return {
+        id: s.id,
+        date: s.date,
+        weekdayTime: s.weekday_time,
+        location: s.location,
+        capacity: s.capacity,
+        confirmedCount,
+        full: confirmedCount >= s.capacity,
+        startAt: s.start_at,
+        subCutoff,
+        _startMs: startMs,
+      };
+    })
+    .filter((s) => s._startMs > nowMs)
+    .map(({ _startMs, ...rest }) => rest);
 }

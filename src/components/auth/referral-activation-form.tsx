@@ -27,6 +27,7 @@ export function ReferralActivationForm({
   );
   const [error, setError] = React.useState<string | null>(null);
   const [doneFor, setDoneFor] = React.useState<UpcomingSessionRow | null>(null);
+  const [lockedAtSignup, setLockedAtSignup] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
 
   function submit(e: React.FormEvent) {
@@ -56,6 +57,8 @@ export function ReferralActivationForm({
         setError(data?.error ?? "Could not activate");
         return;
       }
+      const data = await res.json().catch(() => ({}));
+      setLockedAtSignup(!!data?.lockedAtSignup);
       setDoneFor(session);
     });
   }
@@ -63,7 +66,9 @@ export function ReferralActivationForm({
   if (doneFor) {
     return (
       <div className="space-y-3 rounded-lg border bg-card p-6 text-center">
-        <h2 className="text-lg font-semibold">You&apos;re booked!</h2>
+        <h2 className="text-lg font-semibold">
+          {lockedAtSignup ? "You're confirmed!" : "You're booked!"}
+        </h2>
         <p className="text-sm text-muted-foreground">
           See you on{" "}
           <span className="font-semibold text-foreground">
@@ -86,8 +91,9 @@ export function ReferralActivationForm({
           </p>
         )}
         <p className="pt-2 text-xs text-muted-foreground">
-          {referrerName} will get a notification — feel free to message them
-          with any questions.
+          {lockedAtSignup
+            ? `Your spot is final — see you there!`
+            : `Your spot is held until 24h before the session. ${referrerName} will reach out if anything changes.`}
         </p>
       </div>
     );

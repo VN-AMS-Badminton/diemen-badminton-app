@@ -264,6 +264,11 @@ export function ReferralSessionCalendar({
                 ? "Full"
                 : `${selectedSession.confirmedCount}/${selectedSession.capacity} confirmed`}
             </div>
+            {selectedSession.subCutoff && !selectedSession.full && (
+              <div className="text-xs font-medium text-warning-foreground">
+                ⚡ Tonight — final spot, no tentative window
+              </div>
+            )}
           </div>
         ) : (
           <p className="text-muted-foreground">

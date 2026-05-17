@@ -2,10 +2,19 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { requireSession } from "@/lib/auth/get-session";
+import { joinWaitlist } from "@/lib/waitlist/join-waitlist";
+import { promoteWaitlist } from "@/lib/waitlist/promote-waitlist";
+import { resolveCutoffIfDue } from "@/lib/sessions/resolve-cutoff";
 
 const schema = z.object({
   sessionId: z.string().uuid(),
-  action: z.enum(["opt_out", "opt_in", "drop_in_rsvp", "drop_in_cancel"]),
+  action: z.enum([
+    "opt_out",
+    "opt_in",
+    "drop_in_rsvp",
+    "drop_in_cancel",
+    "waitlist_leave",
+  ]),
 });
 
 export async function POST(req: Request) {
@@ -17,6 +26,9 @@ export async function POST(req: Request) {
 
   const { sessionId, action } = parsed.data;
   const sb = createServerSupabase();
+
+  // Resolve cutoff before any capacity/seat reads.
+  await resolveCutoffIfDue(sessionId);
 
   const { data: sess } = await sb
     .from("sessions")
@@ -46,6 +58,8 @@ export async function POST(req: Request) {
       .from("attendance")
       .update({ rsvp_status: "opted_out" })
       .eq("id", existing.id);
+    // Free seat → promote oldest waitlisted member.
+    await promoteWaitlist(sessionId);
     return NextResponse.json({ ok: true });
   }
 
@@ -57,7 +71,8 @@ export async function POST(req: Request) {
       .from("attendance")
       .select("id", { count: "exact", head: true })
       .eq("session_id", sessionId)
-      .eq("rsvp_status", "in");
+      .eq("rsvp_status", "in")
+      .is("bumped_at", null);
     if ((count ?? 0) >= sess.capacity) {
       return NextResponse.json({ error: "Session is full" }, { status: 409 });
     }
@@ -69,21 +84,37 @@ export async function POST(req: Request) {
   }
 
   if (action === "drop_in_rsvp") {
-    // Capacity check.
+    // Capacity check — only non-bumped 'in' rows count.
     const { count } = await sb
       .from("attendance")
       .select("id", { count: "exact", head: true })
       .eq("session_id", sessionId)
-      .eq("rsvp_status", "in");
-    if ((count ?? 0) >= sess.capacity)
-      return NextResponse.json({ error: "Session is full" }, { status: 409 });
+      .eq("rsvp_status", "in")
+      .is("bumped_at", null);
+    const inCount = count ?? 0;
+
+    if (inCount >= sess.capacity) {
+      // Session full → join the waitlist instead of rejecting.
+      const result = await joinWaitlist({
+        sessionId,
+        playerId: session.sub,
+      });
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error }, { status: 500 });
+      }
+      return NextResponse.json({
+        ok: true,
+        status: "waitlisted",
+        position: result.position,
+      });
+    }
 
     if (existing) {
       await sb
         .from("attendance")
         .update({ rsvp_status: "in", source: "drop_in", payment_status: "owed" })
         .eq("id", existing.id);
-      return NextResponse.json({ ok: true });
+      return NextResponse.json({ ok: true, status: "in" });
     }
     const { error } = await sb.from("attendance").insert({
       session_id: sessionId,
@@ -94,12 +125,24 @@ export async function POST(req: Request) {
     });
     if (error)
       return NextResponse.json({ error: "Could not RSVP" }, { status: 500 });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, status: "in" });
   }
 
   if (action === "drop_in_cancel") {
     if (!existing || existing.source !== "drop_in")
       return NextResponse.json({ error: "No drop-in to cancel" }, { status: 400 });
+    await sb
+      .from("attendance")
+      .update({ rsvp_status: "cancelled" })
+      .eq("id", existing.id);
+    // Free seat → try to promote oldest waitlisted member.
+    await promoteWaitlist(sessionId);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "waitlist_leave") {
+    if (!existing || existing.rsvp_status !== "waitlisted")
+      return NextResponse.json({ error: "Not on waitlist" }, { status: 400 });
     await sb
       .from("attendance")
       .update({ rsvp_status: "cancelled" })
