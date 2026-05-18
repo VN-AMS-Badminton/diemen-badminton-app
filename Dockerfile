@@ -1,8 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
-# Pin Node 22 LTS — sidesteps the Node-23 webpack-cache JSON truncation bug
-# referenced in next.config.mjs and lets us keep minification enabled.
-ARG NODE_VERSION=22-alpine
+# Pin Node 24 LTS for CI/CD and container builds.
+ARG NODE_VERSION=24-alpine
 
 # ---------- deps ----------
 FROM node:${NODE_VERSION} AS deps
