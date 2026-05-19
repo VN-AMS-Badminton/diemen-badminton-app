@@ -3,19 +3,34 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/get-session";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { writeAudit } from "@/lib/admin/audit";
+import { toAmsterdamTimestamp } from "@/lib/amsterdam-time-utils";
 
-// Create one session within a season (admin-driven, post-booking).
-// Auto-creates attendance rows for every confirmed/paid subscriber so
-// the session immediately reflects current subscription roster.
+// Create one or more sessions within a season.
+//
+// Accepts either:
+//   * Single date  -> `{ season_id, date, time, location, capacity }`
+//   * Batch dates  -> `{ season_id, dates: [...], time, location, capacity }`
+//
+// `time` is 24h "HH:MM" in Europe/Amsterdam. The API converts date+time to
+// a UTC timestamptz stored as `start_at`.
 
-const CreateSchema = z.object({
+const DateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD");
+const TimeString = z.string().regex(/^\d{2}:\d{2}$/, "Time must be HH:MM");
+
+const SharedFields = z.object({
   season_id: z.string().uuid(),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
-  weekday_time: z.string().min(1).max(40),
+  time: TimeString,
   location: z.string().trim().min(1, "Location is required").max(200),
   capacity: z.number().int().min(1).max(200),
   tikkie_url: z.string().url().or(z.literal("")).nullable().optional(),
 });
+
+const SingleSchema = SharedFields.extend({ date: DateString });
+const BatchSchema = SharedFields.extend({
+  dates: z.array(DateString).min(1).max(31),
+});
+
+const CreateSchema = z.union([BatchSchema, SingleSchema]);
 
 export async function POST(req: Request) {
   const session = await requireAdmin();
@@ -28,85 +43,107 @@ export async function POST(req: Request) {
     );
   }
 
+  const dates =
+    "dates" in parsed.data ? parsed.data.dates : [parsed.data.date];
+  const { season_id, time, location, capacity, tikkie_url } = parsed.data;
+
   const sb = createServerSupabase();
 
-  // Verify season exists and is in an editable state.
   const { data: season } = await sb
     .from("seasons")
     .select("id, status")
-    .eq("id", parsed.data.season_id)
+    .eq("id", season_id)
     .maybeSingle();
   if (!season) {
     return NextResponse.json({ error: "Season not found" }, { status: 404 });
   }
-  if (season.status !== "booked" && season.status !== "active") {
+  if (season.status !== "poll") {
     return NextResponse.json(
-      { error: "Season must be booked or active to add sessions" },
+      { error: "Season must be open (poll) to add sessions" },
       { status: 400 },
     );
   }
 
-  // Insert session; UNIQUE(season_id, date) catches collisions.
-  const insertPayload = {
-    season_id: parsed.data.season_id,
-    date: parsed.data.date,
-    weekday_time: parsed.data.weekday_time,
-    location: parsed.data.location,
-    capacity: parsed.data.capacity,
-    tikkie_url:
-      parsed.data.tikkie_url === "" || parsed.data.tikkie_url === undefined
-        ? null
-        : parsed.data.tikkie_url,
-    status: "scheduled" as const,
-  };
+  const normalizedTikkie =
+    tikkie_url === "" || tikkie_url === undefined ? null : tikkie_url;
 
-  const { data: created, error: insertErr } = await sb
-    .from("sessions")
-    .insert(insertPayload)
-    .select()
-    .maybeSingle();
-  if (insertErr || !created) {
-    // Postgres unique violation = 23505.
-    const isConflict =
-      insertErr?.code === "23505" ||
-      insertErr?.message?.toLowerCase().includes("duplicate");
-    return NextResponse.json(
-      {
-        error: isConflict
-          ? "A session already exists on that date for this season"
-          : (insertErr?.message ?? "Insert failed"),
-      },
-      { status: isConflict ? 409 : 500 },
-    );
-  }
+  // Pull existing subscribers once so each new session can be filled.
+  const { data: subRows } = await sb
+    .from("attendance")
+    .select("player_id, sessions!inner(season_id)")
+    .eq("sessions.season_id", season_id)
+    .eq("source", "subscription");
+  const subscriberIds = Array.from(
+    new Set((subRows ?? []).map((r) => r.player_id)),
+  );
 
-  // Auto-create attendance rows for confirmed/paid subscribers (idempotent).
-  const { data: subs } = await sb
-    .from("subscriptions")
-    .select("player_id")
-    .eq("season_id", parsed.data.season_id)
-    .in("status", ["confirmed", "paid"]);
+  let created = 0;
+  let skipped = 0;
+  const createdIds: string[] = [];
 
-  let attendanceCreated = 0;
-  for (const sub of subs ?? []) {
-    const { data: exists } = await sb
-      .from("attendance")
+  for (const date of dates) {
+    const start_at = toAmsterdamTimestamp(date, time);
+    const { data: row, error } = await sb
+      .from("sessions")
+      .insert({
+        season_id,
+        start_at,
+        location,
+        capacity,
+        tikkie_url: normalizedTikkie,
+        status: "scheduled" as const,
+      })
       .select("id")
-      .eq("session_id", created.id)
-      .eq("player_id", sub.player_id)
       .maybeSingle();
-    if (!exists) {
-      const { error: attErr } = await sb.from("attendance").insert({
-        session_id: created.id,
-        player_id: sub.player_id,
-        source: "subscription",
-        rsvp_status: "in",
-        payment_status: "n_a",
-      });
-      if (!attErr) attendanceCreated += 1;
+    if (error || !row) {
+      const isConflict =
+        error?.code === "23505" ||
+        error?.message?.toLowerCase().includes("duplicate");
+      if (isConflict) {
+        skipped += 1;
+        continue;
+      }
+      return NextResponse.json(
+        { error: error?.message ?? "Insert failed" },
+        { status: 500 },
+      );
     }
+    created += 1;
+    createdIds.push(row.id);
   }
 
-  await writeAudit(session.sub, "create_session", "session", created.id, null, created);
-  return NextResponse.json({ ok: true, id: created.id, attendanceCreated });
+  // Fan out subscription attendance for the new sessions.
+  if (createdIds.length > 0 && subscriberIds.length > 0) {
+    const attendanceRows = createdIds.flatMap((sessionId) =>
+      subscriberIds.map((playerId) => ({
+        session_id: sessionId,
+        player_id: playerId,
+        source: "subscription" as const,
+        rsvp_status: "in" as const,
+        payment_status: "assumed_paid" as const,
+      })),
+    );
+    await sb
+      .from("attendance")
+      .upsert(attendanceRows, {
+        onConflict: "session_id,player_id",
+        ignoreDuplicates: true,
+      });
+  }
+
+  await writeAudit(
+    session.sub,
+    dates.length > 1 ? "create_sessions_batch" : "create_session",
+    "season",
+    season_id,
+    null,
+    { dates, created, skipped, location, time, capacity },
+  );
+
+  return NextResponse.json({
+    ok: true,
+    created,
+    skipped,
+    sessionIds: createdIds,
+  });
 }

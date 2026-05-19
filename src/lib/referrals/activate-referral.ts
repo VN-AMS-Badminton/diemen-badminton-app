@@ -1,8 +1,11 @@
 import crypto from "node:crypto";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { localDateFromStartAt } from "@/lib/amsterdam-time-utils";
 import { writeAudit } from "@/lib/admin/audit";
 import { getReferralByCode } from "@/lib/referrals/get-referral-by-code";
 import { getRemainingSlots } from "@/lib/referrals/get-remaining-slots";
+import { sendPushToPlayers } from "@/lib/notifications/send-push";
+import { referralSignupPayload } from "@/lib/notifications/push-payload";
 
 export interface ActivateReferralResult {
   ok: boolean;
@@ -62,7 +65,7 @@ export async function activateReferralAndRsvp(
 
   const { data: sess } = await sb
     .from("sessions")
-    .select("id, date, capacity, status, start_at")
+    .select("id, capacity, status, start_at")
     .eq("id", params.sessionId)
     .maybeSingle();
   if (!sess) return { ok: false, error: "Session not found" };
@@ -130,7 +133,7 @@ export async function activateReferralAndRsvp(
       player_id: player.id,
       source: "referral",
       rsvp_status: "in",
-      payment_status: "n_a",
+      payment_status: "assumed_paid",
       is_tentative: !lockedAtSignup,
       cap_consumed: true,
     })
@@ -165,11 +168,17 @@ export async function activateReferralAndRsvp(
     },
   );
 
+  // Notify referrer (fire-and-forget — failure must not roll back the signup).
+  sendPushToPlayers(
+    [referral.referrer.id],
+    referralSignupPayload(displayName),
+  ).catch((err) => console.error("[push] referral signup notify failed", err));
+
   return {
     ok: true,
     playerId: player.id,
     attendanceId: att.id,
-    sessionDate: sess.date,
+    sessionDate: localDateFromStartAt(sess.start_at),
     lockedAtSignup,
   };
 }

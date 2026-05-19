@@ -35,6 +35,15 @@ export function formatWeekday(iso: string | Date): string {
   }).format(d);
 }
 
+export function formatTime(iso: string | Date): string {
+  const d = typeof iso === "string" ? new Date(iso) : iso;
+  return new Intl.DateTimeFormat("nl-NL", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: TZ,
+  }).format(d);
+}
+
 export function formatEuros(cents: number): string {
   return new Intl.NumberFormat("nl-NL", {
     style: "currency",

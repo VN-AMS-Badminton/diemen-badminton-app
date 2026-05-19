@@ -1,5 +1,6 @@
 import { createServerSupabase } from "@/lib/supabase/server";
 import { writeAudit } from "@/lib/admin/audit";
+import { computePaymentDeadline } from "@/lib/sessions/payment-deadline";
 
 export interface PromoteResult {
   ok: boolean;
@@ -18,7 +19,7 @@ export async function promoteWaitlist(sessionId: string): Promise<PromoteResult>
 
   const { data: sess } = await sb
     .from("sessions")
-    .select("id, capacity")
+    .select("id, capacity, start_at")
     .eq("id", sessionId)
     .maybeSingle();
   if (!sess) return { ok: false, promotedIds: [] };
@@ -35,7 +36,7 @@ export async function promoteWaitlist(sessionId: string): Promise<PromoteResult>
 
   const { data: candidates } = await sb
     .from("attendance")
-    .select("id")
+    .select("id, payment_status")
     .eq("session_id", sessionId)
     .eq("rsvp_status", "waitlisted")
     .order("created_at", { ascending: true })
@@ -44,11 +45,26 @@ export async function promoteWaitlist(sessionId: string): Promise<PromoteResult>
   const ids = (candidates ?? []).map((c) => c.id);
   if (ids.length === 0) return { ok: true, promotedIds: [] };
 
+  // Promoting waitlist rows that are still `unpaid` starts their 36h
+  // self-confirm clock. Already-paid rows (admin pre-paid edge cases) keep
+  // their deadline cleared.
+  const dueAt = computePaymentDeadline(sess.start_at);
+  const unpaidIds = (candidates ?? [])
+    .filter((c) => c.payment_status === "unpaid")
+    .map((c) => c.id);
+
   const { error } = await sb
     .from("attendance")
     .update({ rsvp_status: "in" })
     .in("id", ids);
   if (error) return { ok: false, promotedIds: [] };
+
+  if (unpaidIds.length > 0) {
+    await sb
+      .from("attendance")
+      .update({ payment_due_at: dueAt })
+      .in("id", unpaidIds);
+  }
 
   for (const id of ids) {
     await writeAudit(null, "waitlist_promote", "attendance", id, null, {

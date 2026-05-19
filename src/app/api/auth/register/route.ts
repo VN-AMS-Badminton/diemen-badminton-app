@@ -11,7 +11,7 @@ import {
 const schema = z.object({
   displayName: z.string().min(2).max(64),
   username: z.string().min(2).max(32),
-  pin: z.string().regex(/^\d{4}$/, "PIN must be 4 digits"),
+  pin: z.string().regex(/^\d{6}$/, "PIN must be 6 digits"),
   pinConfirm: z.string(),
   whatsappNumber: z.string().min(6).max(20),
   inviteCode: z.string().min(4).max(64),

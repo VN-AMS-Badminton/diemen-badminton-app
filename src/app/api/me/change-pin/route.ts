@@ -6,7 +6,7 @@ import { hashPin, verifyPin } from "@/lib/auth/pin";
 
 const schema = z.object({
   currentPin: z.string().regex(/^\d{4,6}$/),
-  newPin: z.string().regex(/^\d{4,6}$/),
+  newPin: z.string().regex(/^\d{6}$/, "New PIN must be 6 digits"),
 });
 
 export async function POST(req: Request) {
@@ -14,7 +14,10 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success)
-    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Invalid input" },
+      { status: 400 },
+    );
 
   const sb = createServerSupabase();
   const { data: player } = await sb

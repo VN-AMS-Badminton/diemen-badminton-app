@@ -35,12 +35,14 @@ export async function joinWaitlist(params: {
       return { ok: false, error: "Already RSVP'd in" };
     }
     // cancelled / opted_out → reuse the row.
+    // Drop-in stays unpaid through waitlist and promotion; player marks paid
+    // before passing the slot.
     const { error } = await sb
       .from("attendance")
       .update({
         rsvp_status: "waitlisted",
         source: "drop_in",
-        payment_status: "n_a",
+        payment_status: "unpaid",
       })
       .eq("id", existing.id);
     if (error) return { ok: false, error: "Could not join waitlist" };
@@ -60,7 +62,7 @@ export async function joinWaitlist(params: {
       player_id: params.playerId,
       source: "drop_in",
       rsvp_status: "waitlisted",
-      payment_status: "n_a",
+      payment_status: "unpaid",
     })
     .select("id")
     .maybeSingle();

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PinInput } from "@/components/ui/pin-input";
 
 export function RegisterForm({ inviteCode }: { inviteCode: string }) {
   const router = useRouter();
@@ -18,11 +19,31 @@ export function RegisterForm({ inviteCode }: { inviteCode: string }) {
   const [done, setDone] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
 
+  const displayNameRef = React.useRef<HTMLInputElement>(null);
+  const usernameRef = React.useRef<HTMLInputElement>(null);
+  const whatsappRef = React.useRef<HTMLInputElement>(null);
+  const pinRef = React.useRef<HTMLInputElement>(null);
+  const pinConfirmRef = React.useRef<HTMLInputElement>(null);
+  const errorRef = React.useRef<HTMLParagraphElement>(null);
+
+  function focusFromError(msg: string) {
+    const lower = msg.toLowerCase();
+    if (lower.includes("name")) displayNameRef.current?.focus();
+    else if (lower.includes("handle") || lower.includes("username"))
+      usernameRef.current?.focus();
+    else if (lower.includes("whatsapp") || lower.includes("phone"))
+      whatsappRef.current?.focus();
+    else if (lower.includes("pin") || lower.includes("password"))
+      pinRef.current?.focus();
+    else errorRef.current?.focus();
+  }
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (pin !== pinConfirm) {
       setError("PINs do not match");
+      pinConfirmRef.current?.focus();
       return;
     }
     startTransition(async () => {
@@ -41,7 +62,9 @@ export function RegisterForm({ inviteCode }: { inviteCode: string }) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data?.error ?? "Registration failed");
+        const msg = data?.error ?? "Registration failed";
+        setError(msg);
+        focusFromError(msg);
         return;
       }
       setDone(true);
@@ -68,6 +91,7 @@ export function RegisterForm({ inviteCode }: { inviteCode: string }) {
       <div className="space-y-2">
         <Label htmlFor="displayName">Your name</Label>
         <Input
+          ref={displayNameRef}
           id="displayName"
           autoComplete="name"
           placeholder="e.g. Jan de Vries"
@@ -84,6 +108,7 @@ export function RegisterForm({ inviteCode }: { inviteCode: string }) {
       <div className="space-y-2">
         <Label htmlFor="username">Login handle</Label>
         <Input
+          ref={usernameRef}
           id="username"
           autoComplete="username"
           autoCapitalize="none"
@@ -102,6 +127,7 @@ export function RegisterForm({ inviteCode }: { inviteCode: string }) {
       <div className="space-y-2">
         <Label htmlFor="whatsapp">WhatsApp number (e.g. +31612345678)</Label>
         <Input
+          ref={whatsappRef}
           id="whatsapp"
           inputMode="tel"
           autoComplete="tel"
@@ -111,14 +137,14 @@ export function RegisterForm({ inviteCode }: { inviteCode: string }) {
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="pin">Choose a 4-digit PIN</Label>
-        <Input
+        <Label htmlFor="pin">Choose a 6-digit PIN</Label>
+        <PinInput
+          ref={pinRef}
           id="pin"
-          type="password"
           inputMode="numeric"
-          pattern="\d{4}"
-          minLength={4}
-          maxLength={4}
+          pattern="\d{6}"
+          minLength={6}
+          maxLength={6}
           value={pin}
           onChange={(e) => setPin(e.target.value)}
           required
@@ -126,13 +152,13 @@ export function RegisterForm({ inviteCode }: { inviteCode: string }) {
       </div>
       <div className="space-y-2">
         <Label htmlFor="pinConfirm">Confirm PIN</Label>
-        <Input
+        <PinInput
+          ref={pinConfirmRef}
           id="pinConfirm"
-          type="password"
           inputMode="numeric"
-          pattern="\d{4}"
-          minLength={4}
-          maxLength={4}
+          pattern="\d{6}"
+          minLength={6}
+          maxLength={6}
           value={pinConfirm}
           onChange={(e) => setPinConfirm(e.target.value)}
           required
@@ -148,7 +174,12 @@ export function RegisterForm({ inviteCode }: { inviteCode: string }) {
         />
       </div>
       {error && (
-        <p className="text-sm text-destructive" role="alert">
+        <p
+          ref={errorRef}
+          className="text-sm text-destructive"
+          role="alert"
+          tabIndex={-1}
+        >
           {error}
         </p>
       )}

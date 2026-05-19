@@ -5,6 +5,8 @@ import { requireSession } from "@/lib/auth/get-session";
 import { joinWaitlist } from "@/lib/waitlist/join-waitlist";
 import { promoteWaitlist } from "@/lib/waitlist/promote-waitlist";
 import { resolveCutoffIfDue } from "@/lib/sessions/resolve-cutoff";
+import { resolvePaymentDeadlines } from "@/lib/sessions/resolve-payment-deadlines";
+import { computePaymentDeadline } from "@/lib/sessions/payment-deadline";
 
 const schema = z.object({
   sessionId: z.string().uuid(),
@@ -27,8 +29,10 @@ export async function POST(req: Request) {
   const { sessionId, action } = parsed.data;
   const sb = createServerSupabase();
 
-  // Resolve cutoff before any capacity/seat reads.
+  // Resolve cutoff + auto-drop expired unpaid drop-ins before reads so the
+  // capacity check sees the freshly freed seats.
   await resolveCutoffIfDue(sessionId);
+  await resolvePaymentDeadlines(sessionId);
 
   const { data: sess } = await sb
     .from("sessions")
@@ -39,8 +43,7 @@ export async function POST(req: Request) {
   if (sess.status !== "scheduled")
     return NextResponse.json({ error: "Session is not open" }, { status: 400 });
 
-  const sessionDate = new Date(sess.date + "T23:59:59Z");
-  if (sessionDate.getTime() < Date.now()) {
+  if (new Date(sess.start_at).getTime() < Date.now()) {
     return NextResponse.json({ error: "Session is in the past" }, { status: 400 });
   }
 
@@ -109,10 +112,17 @@ export async function POST(req: Request) {
       });
     }
 
+    const dueAt = computePaymentDeadline(sess.start_at);
     if (existing) {
+      // Drop-in starts unpaid; player must tap "I paid" before passing the slot.
       await sb
         .from("attendance")
-        .update({ rsvp_status: "in", source: "drop_in", payment_status: "owed" })
+        .update({
+          rsvp_status: "in",
+          source: "drop_in",
+          payment_status: "unpaid",
+          payment_due_at: dueAt,
+        })
         .eq("id", existing.id);
       return NextResponse.json({ ok: true, status: "in" });
     }
@@ -121,7 +131,8 @@ export async function POST(req: Request) {
       player_id: session.sub,
       source: "drop_in",
       rsvp_status: "in",
-      payment_status: "owed",
+      payment_status: "unpaid",
+      payment_due_at: dueAt,
     });
     if (error)
       return NextResponse.json({ error: "Could not RSVP" }, { status: 500 });

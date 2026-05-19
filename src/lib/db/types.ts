@@ -1,22 +1,14 @@
-// Hand-written types matching schema in supabase/migrations/0001_init.sql.
-// Keep enums and row shapes here so DB clients can type-check queries.
+// Hand-written types matching schema in supabase/migrations/0001_init.sql and
+// later migrations. Keep enums and row shapes here so DB clients can
+// type-check queries.
 
 export type PlayerRole = "player" | "admin";
 export type PlayerStatus = "pending" | "active" | "blocked";
-export type SeasonStatus = "poll" | "booked" | "active" | "closed";
-export type SubscriptionStatus =
-  | "opted_in"
-  | "confirmed"
-  | "paid"
-  | "cancelled";
+export type SeasonStatus = "poll" | "closed";
 export type SessionStatus = "scheduled" | "done" | "cancelled";
 export type AttendanceSource = "subscription" | "drop_in" | "passed" | "referral";
 export type RsvpStatus = "in" | "opted_out" | "cancelled" | "waitlisted";
-export type PaymentStatus =
-  | "n_a"
-  | "owed"
-  | "self_marked_paid"
-  | "admin_confirmed";
+export type PaymentStatus = "assumed_paid" | "flagged" | "unpaid";
 
 export interface PlayerRow {
   id: string;
@@ -45,6 +37,12 @@ export interface SeasonRow {
   subscription_fee_per_session_cents: number;
   drop_in_fee_per_session_cents: number;
   tikkie_url_override: string | null;
+  // Default venue hint used by the session batch creator.
+  location: string | null;
+  // Default schedule used to pre-populate the batch creator.
+  // weekday: 0=Sunday … 6=Saturday. start_time is HH:MM (24h).
+  weekday: number | null;
+  start_time: string | null;
   poll_opens_at: string;
   poll_closes_at: string;
   status: SeasonStatus;
@@ -52,23 +50,9 @@ export interface SeasonRow {
   updated_at: string;
 }
 
-export interface SubscriptionRow {
-  id: string;
-  season_id: string;
-  player_id: string;
-  status: SubscriptionStatus;
-  paid_at: string | null;
-  marked_by: string | null;
-  bunq_payment_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface SessionRow {
   id: string;
   season_id: string;
-  date: string;
-  weekday_time: string;
   capacity: number;
   tikkie_url: string | null;
   // Venue label. Mandatory on every session (DB NOT NULL).
@@ -89,6 +73,9 @@ export interface AttendanceRow {
   source: AttendanceSource;
   rsvp_status: RsvpStatus;
   payment_status: PaymentStatus;
+  // Deadline for the player to self-confirm payment. Set on drop-in
+  // RSVP/waitlist promotion. Resolver auto-cancels expired unpaid rows.
+  payment_due_at: string | null;
   marked_by: string | null;
   bunq_payment_id: string | null;
   // Referral lifecycle flags. Decoupled so cap accounting stays simple.
@@ -140,13 +127,6 @@ export interface Database {
         };
         Update: Partial<SeasonRow>;
       };
-      subscriptions: {
-        Row: SubscriptionRow;
-        Insert: Omit<SubscriptionRow, "id" | "created_at" | "updated_at"> & {
-          id?: string;
-        };
-        Update: Partial<SubscriptionRow>;
-      };
       sessions: {
         Row: SessionRow;
         Insert: Omit<SessionRow, "id" | "created_at" | "updated_at"> & {
@@ -183,7 +163,6 @@ export interface Database {
       player_role: PlayerRole;
       player_status: PlayerStatus;
       season_status: SeasonStatus;
-      subscription_status: SubscriptionStatus;
       session_status: SessionStatus;
       attendance_source: AttendanceSource;
       rsvp_status: RsvpStatus;

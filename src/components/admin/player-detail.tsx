@@ -50,8 +50,8 @@ export function PlayerDetail({ player }: { player: Player }) {
   }
 
   function resetPin() {
-    if (!/^\d{4,6}$/.test(newPin)) {
-      setError("PIN must be 4-6 digits");
+    if (!/^\d{6}$/.test(newPin)) {
+      setError("PIN must be 6 digits");
       return;
     }
     setError(null);
@@ -131,11 +131,13 @@ export function PlayerDetail({ player }: { player: Player }) {
           band. They can change it after sign-in.
         </p>
         <div className="space-y-2">
-          <Label htmlFor="newPin">Temporary PIN (4-6 digits)</Label>
+          <Label htmlFor="newPin">Temporary PIN (6 digits)</Label>
           <Input
             id="newPin"
             inputMode="numeric"
-            pattern="\d{4,6}"
+            pattern="\d{6}"
+            minLength={6}
+            maxLength={6}
             value={newPin}
             onChange={(e) => setNewPin(e.target.value)}
           />

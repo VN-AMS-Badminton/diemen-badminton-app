@@ -3,24 +3,24 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatTime } from "@/lib/format";
 
 export default async function AdminSessionsPage() {
   const sb = createServerSupabase();
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const now = new Date().toISOString();
 
   const [{ data: upcoming }, { data: past }] = await Promise.all([
     sb
       .from("sessions")
       .select("*")
-      .gte("date", todayIso)
-      .order("date", { ascending: true })
+      .gte("start_at", now)
+      .order("start_at", { ascending: true })
       .limit(50),
     sb
       .from("sessions")
       .select("*")
-      .lt("date", todayIso)
-      .order("date", { ascending: false })
+      .lt("start_at", now)
+      .order("start_at", { ascending: false })
       .limit(20),
   ]);
 
@@ -51,8 +51,7 @@ export default async function AdminSessionsPage() {
 
 interface S {
   id: string;
-  date: string;
-  weekday_time: string;
+  start_at: string;
   location: string;
   capacity: number;
   status: string;
@@ -73,8 +72,8 @@ function SessionTable({ rows }: { rows: S[] }) {
       <TBody>
         {rows.map((r) => (
           <TR key={r.id}>
-            <TD>{formatDate(r.date)}</TD>
-            <TD>{r.weekday_time}</TD>
+            <TD>{formatDate(r.start_at)}</TD>
+            <TD>{formatTime(r.start_at)}</TD>
             <TD className="text-sm text-muted-foreground">{r.location ?? "—"}</TD>
             <TD>{r.capacity}</TD>
             <TD>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MapPin } from "lucide-react";
 import { requireSession } from "@/lib/auth/get-session";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
@@ -13,7 +14,7 @@ export default async function HistoryPage() {
   const { data } = await sb
     .from("attendance")
     .select(
-      "id, rsvp_status, payment_status, source, sessions:session_id(date, weekday_time, location)",
+      "id, rsvp_status, payment_status, source, sessions:session_id(start_at, location)",
     )
     .eq("player_id", session.sub)
     .order("created_at", { ascending: false });
@@ -23,7 +24,7 @@ export default async function HistoryPage() {
     rsvp_status: string;
     payment_status: string;
     source: string;
-    sessions: { date: string; weekday_time: string; location: string } | null;
+    sessions: { start_at: string; location: string } | null;
   };
   const rows = (data ?? []) as unknown as Row[];
 
@@ -64,10 +65,11 @@ export default async function HistoryPage() {
               {rows.map((r) => (
                 <TR key={r.id}>
                   <TD className="font-medium">
-                    {r.sessions ? formatDate(r.sessions.date) : "—"}
+                    {r.sessions ? formatDate(r.sessions.start_at) : "—"}
                     {r.sessions?.location && (
-                      <div className="text-xs font-normal text-muted-foreground">
-                        📍 {r.sessions.location}
+                      <div className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground">
+                        <MapPin className="h-3 w-3" aria-hidden />
+                        {r.sessions.location}
                       </div>
                     )}
                   </TD>
@@ -90,16 +92,18 @@ export default async function HistoryPage() {
                   <TD>
                     <Badge
                       variant={
-                        r.payment_status === "admin_confirmed"
-                          ? "success"
-                          : r.payment_status === "self_marked_paid"
+                        r.payment_status === "flagged"
+                          ? "destructive"
+                          : r.payment_status === "unpaid"
                             ? "warning"
-                            : r.payment_status === "owed"
-                              ? "destructive"
-                              : "outline"
+                            : "success"
                       }
                     >
-                      {r.payment_status}
+                      {r.payment_status === "flagged"
+                        ? "flagged"
+                        : r.payment_status === "unpaid"
+                          ? "unpaid"
+                          : "paid"}
                     </Badge>
                   </TD>
                 </TR>

@@ -5,6 +5,8 @@ import { requireSession } from "@/lib/auth/get-session";
 
 const schema = z.object({ sessionId: z.string().uuid() });
 
+// Eligible pass-slot recipients: active members who are not already subscribed
+// to the season and not already RSVP'd in for the session.
 export async function GET(req: NextRequest) {
   const session = await requireSession();
 
@@ -27,13 +29,21 @@ export async function GET(req: NextRequest) {
   if (sess.status !== "scheduled")
     return NextResponse.json({ error: "Session not open" }, { status: 400 });
 
-  // Collect player IDs to exclude: passer, active subscribers, already-in players
-  const [{ data: subs }, { data: inRecords }] = await Promise.all([
-    sb
-      .from("subscriptions")
-      .select("player_id")
-      .eq("season_id", sess.season_id)
-      .in("status", ["confirmed", "paid"]),
+  // Subscribers = anyone with a subscription attendance row in this season.
+  const { data: seasonSessions } = await sb
+    .from("sessions")
+    .select("id")
+    .eq("season_id", sess.season_id);
+  const seasonSessionIds = (seasonSessions ?? []).map((s) => s.id);
+
+  const [{ data: subAtt }, { data: inRecords }] = await Promise.all([
+    seasonSessionIds.length > 0
+      ? sb
+          .from("attendance")
+          .select("player_id")
+          .eq("source", "subscription")
+          .in("session_id", seasonSessionIds)
+      : Promise.resolve({ data: [] as { player_id: string }[] }),
     sb
       .from("attendance")
       .select("player_id")
@@ -44,7 +54,7 @@ export async function GET(req: NextRequest) {
   const excludeIds = [
     ...new Set([
       session.sub,
-      ...(subs ?? []).map((s) => s.player_id),
+      ...(subAtt ?? []).map((s) => s.player_id),
       ...(inRecords ?? []).map((r) => r.player_id),
     ]),
   ];

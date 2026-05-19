@@ -1,36 +1,34 @@
 import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
+import { formatDate } from "@/lib/format";
 
 export default async function AdminHome() {
   const sb = createServerSupabase();
 
-  const todayIso = new Date().toISOString().slice(0, 10);
-
-  const [pending, activeSeason, nextSession] = await Promise.all([
+  const [pending, currentSeason, nextSession] = await Promise.all([
     sb.from("players").select("id", { count: "exact", head: true }).eq("status", "pending"),
     sb
       .from("seasons")
       .select("*")
-      .in("status", ["poll", "booked", "active"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
     sb
       .from("sessions")
       .select("*")
-      .gte("date", todayIso)
+      .gte("start_at", new Date().toISOString())
       .eq("status", "scheduled")
-      .order("date", { ascending: true })
+      .order("start_at", { ascending: true })
       .limit(1)
       .maybeSingle(),
   ]);
 
   let attendingCount = 0;
-  let paidCount = 0;
+  let flaggedCount = 0;
   if (nextSession.data) {
     const id = nextSession.data.id;
-    const [att, paid] = await Promise.all([
+    const [att, flagged] = await Promise.all([
       sb
         .from("attendance")
         .select("id", { count: "exact", head: true })
@@ -40,10 +38,11 @@ export default async function AdminHome() {
         .from("attendance")
         .select("id", { count: "exact", head: true })
         .eq("session_id", id)
-        .in("payment_status", ["admin_confirmed", "self_marked_paid"]),
+        .eq("rsvp_status", "in")
+        .in("payment_status", ["flagged", "unpaid"]),
     ]);
     attendingCount = att.count ?? 0;
-    paidCount = paid.count ?? 0;
+    flaggedCount = flagged.count ?? 0;
   }
 
   return (
@@ -62,12 +61,12 @@ export default async function AdminHome() {
         />
         <StatTile
           label="Current season"
-          value={activeSeason.data?.year_month ?? "—"}
-          sub={activeSeason.data?.status ?? "no active season"}
+          value={currentSeason.data?.year_month ?? "—"}
+          sub={currentSeason.data?.status ?? "no season yet"}
         />
         <StatTile
           label="Next session"
-          value={nextSession.data?.date ?? "—"}
+          value={nextSession.data ? formatDate(nextSession.data.start_at) : "—"}
           sub={
             nextSession.data
               ? `${attendingCount} confirmed of ${nextSession.data.capacity}`
@@ -75,8 +74,8 @@ export default async function AdminHome() {
           }
         />
         <StatTile
-          label="Paid this session"
-          value={paidCount}
+          label="Flagged unpaid"
+          value={flaggedCount}
           href="/admin/reconciliation"
           linkLabel="Reconcile"
         />

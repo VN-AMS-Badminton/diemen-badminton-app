@@ -71,7 +71,7 @@ DECLARE
 BEGIN
   FOR r IN SELECT id FROM players WHERE status = 'active' AND referral_code IS NULL LOOP
     FOR attempt IN 1..5 LOOP
-      candidate := translate(encode(gen_random_bytes(12), 'base64'), '+/=', '-_');
+      candidate := translate(encode(extensions.gen_random_bytes(12), 'base64'), '+/=', '-_');
       BEGIN
         UPDATE players SET referral_code = candidate
           WHERE id = r.id AND referral_code IS NULL;

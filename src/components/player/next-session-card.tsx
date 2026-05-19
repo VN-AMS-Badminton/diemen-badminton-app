@@ -1,3 +1,4 @@
+import { MapPin } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -11,18 +12,16 @@ import { RsvpAction } from "@/components/player/rsvp-actions";
 import { PassSlotDialog } from "@/components/player/pass-slot-dialog";
 import { PaymentBlock } from "@/components/player/payment-block";
 import { getPaymentContext } from "@/lib/sessions/get-payment-context";
-import { formatDate, formatWeekday } from "@/lib/format";
+import { formatDate, formatTime, formatWeekday } from "@/lib/format";
 import type { NextSessionData } from "@/lib/sessions/get-next-session";
 
 export function NextSessionCard({
   data,
   username,
-  subscriptionRow,
   waitlist,
 }: {
   data: NextSessionData | null;
   username: string;
-  subscriptionRow: { id: string; status: string } | null;
   waitlist?: { position: number; total: number } | null;
 }) {
   if (!data) {
@@ -34,27 +33,26 @@ export function NextSessionCard({
     );
   }
 
-  const { session, season, attendance, confirmedInCount, seasonSessionCount } = data;
+  const { session, season, attendance, confirmedInCount, isSeasonSubscriber } =
+    data;
   const remaining = Math.max(0, session.capacity - confirmedInCount);
-  const isSubscriber =
-    !!subscriptionRow &&
-    (subscriptionRow.status === "confirmed" || subscriptionRow.status === "paid");
   const subscriberSlot = attendance?.source === "subscription";
   const isWaitlisted = attendance?.rsvp_status === "waitlisted";
-  const time = session.weekday_time.split(" ").slice(-1)[0];
+  const time = formatTime(session.start_at);
 
   return (
     <Card accent>
       <CardHeader>
         <p className="overline">Next session</p>
         <CardTitle className="text-2xl">
-          {formatWeekday(session.date)}{" "}
+          {formatWeekday(session.start_at)}{" "}
           <span className="text-brand tabular-nums">{time}</span>
         </CardTitle>
-        <CardDescription>{formatDate(session.date)}</CardDescription>
+        <CardDescription>{formatDate(session.start_at)}</CardDescription>
         {session.location && (
-          <p className="mt-1 text-sm text-muted-foreground">
-            📍 {session.location}
+          <p className="mt-1 inline-flex items-center gap-1 text-sm text-muted-foreground">
+            <MapPin className="h-3.5 w-3.5" aria-hidden />
+            {session.location}
           </p>
         )}
       </CardHeader>
@@ -113,14 +111,10 @@ export function NextSessionCard({
                 }
                 amountCents={season.drop_in_fee_per_session_cents}
                 username={username}
-                status={
-                  attendance.payment_status as
-                    | "owed"
-                    | "self_marked_paid"
-                    | "admin_confirmed"
-                }
-                target={{ attendanceId: attendance.id }}
                 label="Drop-in payment"
+                attendanceId={attendance.id}
+                status={attendance.payment_status}
+                paymentDueAt={attendance.payment_due_at}
               />
               <RsvpAction
                 sessionId={session.id}
@@ -128,46 +122,54 @@ export function NextSessionCard({
                 label="Cancel RSVP"
                 variant="outline"
               />
-              {(attendance.payment_status === "self_marked_paid" ||
-                attendance.payment_status === "admin_confirmed") && (
+              {attendance.payment_status === "unpaid" ? (
+                <p className="text-xs text-muted-foreground">
+                  Tap <strong>I paid</strong> after sending your Tikkie to
+                  unlock passing your slot.
+                </p>
+              ) : (
                 <PassSlotDialog sessionId={session.id} />
               )}
             </>
           )}
 
         {/* State 4: Non-subscriber, available (or previously cancelled drop-in) */}
-        {!isSubscriber && (!attendance || attendance.rsvp_status === "cancelled") && remaining > 0 && (
-          <>
-            <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
-              <span className="font-bold text-brand tabular-nums">
-                {remaining}
-              </span>{" "}
-              slot{remaining === 1 ? "" : "s"} left of{" "}
-              <span className="tabular-nums">{session.capacity}</span>
-            </div>
-            <RsvpAction
-              sessionId={session.id}
-              action="drop_in_rsvp"
-              label="RSVP (drop-in)"
-            />
-          </>
-        )}
+        {!isSeasonSubscriber &&
+          (!attendance || attendance.rsvp_status === "cancelled") &&
+          remaining > 0 && (
+            <>
+              <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
+                <span className="font-bold text-brand tabular-nums">
+                  {remaining}
+                </span>{" "}
+                slot{remaining === 1 ? "" : "s"} left of{" "}
+                <span className="tabular-nums">{session.capacity}</span>
+              </div>
+              <RsvpAction
+                sessionId={session.id}
+                action="drop_in_rsvp"
+                label="RSVP (drop-in)"
+              />
+            </>
+          )}
 
-        {/* State 5: Non-subscriber, full (or previously cancelled drop-in) — offer waitlist */}
-        {!isSubscriber && (!attendance || attendance.rsvp_status === "cancelled") && remaining === 0 && (
-          <>
-            <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-              Session is full this week — join the waitlist and you&apos;ll be
-              auto-promoted if a seat opens.
-            </div>
-            <RsvpAction
-              sessionId={session.id}
-              action="drop_in_rsvp"
-              label="Join waitlist"
-              variant="outline"
-            />
-          </>
-        )}
+        {/* State 5: Non-subscriber, full — offer waitlist */}
+        {!isSeasonSubscriber &&
+          (!attendance || attendance.rsvp_status === "cancelled") &&
+          remaining === 0 && (
+            <>
+              <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+                Session is full this week — join the waitlist and you&apos;ll be
+                auto-promoted if a seat opens.
+              </div>
+              <RsvpAction
+                sessionId={session.id}
+                action="drop_in_rsvp"
+                label="Join waitlist"
+                variant="outline"
+              />
+            </>
+          )}
 
         {/* State 6: Waitlisted */}
         {isWaitlisted && (
@@ -192,47 +194,7 @@ export function NextSessionCard({
             />
           </>
         )}
-
-        {/* Subscription payment block when applicable */}
-        {isSubscriber && subscriberSlot && subscriptionRow && (
-          <SubscriptionPaymentBlock
-            seasonId={season.id}
-            subscriptionId={subscriptionRow.id}
-            username={username}
-            data={data}
-            status={subscriptionRow.status as "confirmed" | "paid"}
-          />
-        )}
       </CardContent>
     </Card>
-  );
-}
-
-function SubscriptionPaymentBlock(props: {
-  seasonId: string;
-  subscriptionId: string;
-  username: string;
-  data: NextSessionData;
-  status: "confirmed" | "paid";
-}) {
-  const { season } = props.data;
-  const { seasonSessionCount } = props.data;
-  const ctx = getPaymentContext({
-    season,
-    scope: "subscription",
-    username: props.username,
-    sessionCount: seasonSessionCount,
-  });
-  const paymentStatus: "owed" | "admin_confirmed" =
-    props.status === "paid" ? "admin_confirmed" : "owed";
-  return (
-    <PaymentBlock
-      tikkieUrl={ctx.tikkieUrl}
-      amountCents={ctx.amountCents}
-      username={props.username}
-      status={paymentStatus}
-      target={{ subscriptionId: props.subscriptionId }}
-      label={`Monthly subscription (${season.year_month})`}
-    />
   );
 }

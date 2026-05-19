@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PinInput } from "@/components/ui/pin-input";
 
 export function LoginForm() {
   const router = useRouter();
@@ -12,6 +13,20 @@ export function LoginForm() {
   const [pin, setPin] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [pending, startTransition] = React.useTransition();
+  const usernameRef = React.useRef<HTMLInputElement>(null);
+  const pinRef = React.useRef<HTMLInputElement>(null);
+  const errorRef = React.useRef<HTMLParagraphElement>(null);
+
+  function focusError(msg: string) {
+    const lower = msg.toLowerCase();
+    if (lower.includes("user") || lower.includes("name")) {
+      usernameRef.current?.focus();
+    } else if (lower.includes("pin") || lower.includes("password")) {
+      pinRef.current?.focus();
+    } else {
+      errorRef.current?.focus();
+    }
+  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,7 +39,9 @@ export function LoginForm() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data?.error ?? "Login failed");
+        const msg = data?.error ?? "Login failed";
+        setError(msg);
+        focusError(msg);
         return;
       }
       const data = await res.json();
@@ -38,6 +55,7 @@ export function LoginForm() {
       <div className="space-y-2">
         <Label htmlFor="username">Username</Label>
         <Input
+          ref={usernameRef}
           id="username"
           autoComplete="username"
           autoCapitalize="none"
@@ -50,9 +68,9 @@ export function LoginForm() {
       </div>
       <div className="space-y-2">
         <Label htmlFor="pin">PIN</Label>
-        <Input
+        <PinInput
+          ref={pinRef}
           id="pin"
-          type="password"
           inputMode="numeric"
           autoComplete="current-password"
           pattern="\d{4,6}"
@@ -64,7 +82,12 @@ export function LoginForm() {
         />
       </div>
       {error && (
-        <p className="text-sm text-destructive" role="alert">
+        <p
+          ref={errorRef}
+          className="text-sm text-destructive"
+          role="alert"
+          tabIndex={-1}
+        >
           {error}
         </p>
       )}

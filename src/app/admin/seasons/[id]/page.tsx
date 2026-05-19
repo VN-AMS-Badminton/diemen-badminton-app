@@ -5,10 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { BookSeasonForm } from "@/components/admin/book-season-form";
-import { SessionCreateForm } from "@/components/admin/session-create-form";
+import { SessionBatchCreateForm } from "@/components/admin/session-batch-create-form";
 import { SessionDeleteButton } from "@/components/admin/session-delete-button";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { CloseSeasonButton } from "@/components/admin/close-season-button";
+import { formatDate, formatDateTime, formatTime } from "@/lib/format";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -24,31 +24,15 @@ export default async function SeasonDetailPage({ params }: Props) {
     .maybeSingle();
   if (!season) notFound();
 
-  type OptInRow = {
-    id: string;
-    status: string;
-    created_at: string;
-    players: { username: string; whatsapp_number: string } | null;
-  };
-  const { data: subs } = await sb
-    .from("subscriptions")
-    .select(
-      "id, status, created_at, players:player_id(username, whatsapp_number)",
-    )
-    .eq("season_id", id)
-    .order("created_at");
-  const subRows = (subs ?? []) as unknown as OptInRow[];
-
   const { data: sessions } = await sb
     .from("sessions")
     .select("*, attendance(count)")
     .eq("season_id", id)
-    .order("date");
+    .order("start_at");
 
   type SessionWithCount = {
     id: string;
-    date: string;
-    weekday_time: string;
+    start_at: string;
     location: string;
     capacity: number;
     status: string;
@@ -56,9 +40,33 @@ export default async function SeasonDetailPage({ params }: Props) {
   };
   const sessionRows = (sessions ?? []) as unknown as SessionWithCount[];
 
-  const canBook = season.status === "poll" || season.status === "booked";
-  const canAddSessions = season.status === "booked" || season.status === "active";
-  const lastSession = sessionRows[sessionRows.length - 1];
+  // Subscribers = distinct players with at least one subscription attendance
+  // row across this season's sessions.
+  const sessionIds = sessionRows.map((s) => s.id);
+  type SubscriberRow = {
+    player_id: string;
+    created_at: string;
+    players: { username: string; whatsapp_number: string | null } | null;
+  };
+  let subscriberRows: SubscriberRow[] = [];
+  if (sessionIds.length > 0) {
+    const { data } = await sb
+      .from("attendance")
+      .select(
+        "player_id, created_at, players:player_id(username, whatsapp_number)",
+      )
+      .eq("source", "subscription")
+      .in("session_id", sessionIds)
+      .order("created_at");
+    const seenPlayers = new Set<string>();
+    subscriberRows = ((data ?? []) as unknown as SubscriberRow[]).filter((r) => {
+      if (seenPlayers.has(r.player_id)) return false;
+      seenPlayers.add(r.player_id);
+      return true;
+    });
+  }
+
+  const isPoll = season.status === "poll";
 
   return (
     <div className="space-y-6">
@@ -77,30 +85,38 @@ export default async function SeasonDetailPage({ params }: Props) {
           Poll: {formatDateTime(season.poll_opens_at)} →{" "}
           {formatDateTime(season.poll_closes_at)}
         </p>
+        {isPoll && (
+          <div className="mt-3">
+            <CloseSeasonButton seasonId={season.id} />
+          </div>
+        )}
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Opt-ins ({subRows.length})</CardTitle>
+          <CardTitle>Subscribers ({subscriberRows.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          {subRows.length === 0 ? (
-            <EmptyState title="No opt-ins yet" />
+          {subscriberRows.length === 0 ? (
+            <EmptyState title="No subscribers yet" />
           ) : (
             <Table>
               <THead>
                 <TR>
                   <TH>Player</TH>
-                  <TH>Status</TH>
                   <TH>When</TH>
                 </TR>
               </THead>
               <TBody>
-                {subRows.map((s) => (
-                  <TR key={s.id}>
-                    <TD className="font-medium">{s.players?.username}</TD>
-                    <TD>
-                      <Badge>{s.status}</Badge>
+                {subscriberRows.map((s) => (
+                  <TR key={s.player_id}>
+                    <TD className="font-medium">
+                      {s.players?.username}
+                      {s.players?.whatsapp_number && (
+                        <div className="text-xs text-muted-foreground">
+                          {s.players.whatsapp_number}
+                        </div>
+                      )}
                     </TD>
                     <TD>{formatDateTime(s.created_at)}</TD>
                   </TR>
@@ -110,27 +126,6 @@ export default async function SeasonDetailPage({ params }: Props) {
           )}
         </CardContent>
       </Card>
-
-      {canBook && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Book this season</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="mb-3 text-sm text-muted-foreground">
-              Set court count, weekday and time. This generates a session for
-              every matching weekday of {season.year_month} and confirms all
-              opted-in subscribers (auto-RSVP for every generated session).
-              Re-running is safe (idempotent).
-            </p>
-            <BookSeasonForm
-              seasonId={season.id}
-              defaultSubFee={season.subscription_fee_per_session_cents}
-              defaultDropFee={season.drop_in_fee_per_session_cents}
-            />
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardHeader>
@@ -156,8 +151,8 @@ export default async function SeasonDetailPage({ params }: Props) {
                   const rsvpCount = s.attendance?.[0]?.count ?? 0;
                   return (
                     <TR key={s.id}>
-                      <TD>{formatDate(s.date)}</TD>
-                      <TD>{s.weekday_time}</TD>
+                      <TD>{formatDate(s.start_at)}</TD>
+                      <TD>{formatTime(s.start_at)}</TD>
                       <TD className="text-sm text-muted-foreground">
                         {s.location ?? "—"}
                       </TD>
@@ -176,7 +171,7 @@ export default async function SeasonDetailPage({ params }: Props) {
                           <SessionDeleteButton
                             sessionId={s.id}
                             rsvpCount={rsvpCount}
-                            sessionLabel={`${formatDate(s.date)} ${s.weekday_time}`}
+                            sessionLabel={`${formatDate(s.start_at)} ${formatTime(s.start_at)}`}
                           />
                         </div>
                       </TD>
@@ -189,23 +184,22 @@ export default async function SeasonDetailPage({ params }: Props) {
         </CardContent>
       </Card>
 
-      {canAddSessions && (
+      {isPoll && (
         <Card>
           <CardHeader>
-            <CardTitle>Add a session</CardTitle>
+            <CardTitle>Add sessions</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="mb-3 text-sm text-muted-foreground">
-              Add one session to this season with its own date, time, and
-              location. Confirmed subscribers are automatically RSVP&apos;d.
+              Pick the dates this season runs on. Each new session
+              automatically gets attendance rows for every existing subscriber.
             </p>
-            <SessionCreateForm
+            <SessionBatchCreateForm
               seasonId={season.id}
-              defaults={{
-                weekday_time: lastSession?.weekday_time,
-                location: lastSession?.location,
-                capacity: lastSession?.capacity,
-              }}
+              yearMonth={season.year_month}
+              defaultLocation={season.location}
+              defaultWeekday={season.weekday}
+              defaultStartTime={season.start_time}
             />
           </CardContent>
         </Card>

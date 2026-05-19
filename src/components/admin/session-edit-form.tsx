@@ -2,52 +2,80 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 import type { SessionStatus } from "@/lib/db/types";
 
-// Edit any scheduled session's date / display label / location / capacity / status.
+// Edit a session's date / time / location / capacity / status.
 // Surfaces 409 (date collision) and 400 (illegal status transition) inline.
 
 interface Props {
   session: {
     id: string;
-    date: string;
-    weekday_time: string;
+    start_at: string;
     location: string;
     capacity: number;
     status: SessionStatus;
   };
 }
 
+function localDateStr(startAt: string) {
+  return new Date(startAt).toLocaleDateString("sv-SE", { timeZone: "Europe/Amsterdam" });
+}
+function localTimeStr(startAt: string) {
+  return new Date(startAt).toLocaleTimeString("sv-SE", {
+    timeZone: "Europe/Amsterdam",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function SessionEditForm({ session }: Props) {
   const router = useRouter();
-  const [date, setDate] = React.useState(session.date);
-  const [weekdayTime, setWeekdayTime] = React.useState(session.weekday_time);
+  const [date, setDate] = React.useState(() => localDateStr(session.start_at));
+  const [time, setTime] = React.useState(() => localTimeStr(session.start_at));
   const [location, setLocation] = React.useState(session.location);
   const [capacity, setCapacity] = React.useState(session.capacity);
   const [status, setStatus] = React.useState<SessionStatus>(session.status);
   const [pending, startTransition] = React.useTransition();
   const [error, setError] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState(false);
+  const [confirmDoneOpen, setConfirmDoneOpen] = React.useState(false);
+
+  const needsDoneConfirm = status === "done" && session.status !== "done";
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSaved(false);
-
-    if (status === "done" && session.status !== "done") {
-      if (!confirm("Mark this session as done? This cannot be reversed.")) return;
+    if (needsDoneConfirm) {
+      setConfirmDoneOpen(true);
+      return;
     }
+    runSave();
+  }
 
+  function runSave() {
+    setConfirmDoneOpen(false);
     startTransition(async () => {
       const res = await fetch(`/api/admin/sessions/${session.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           date,
-          weekday_time: weekdayTime,
+          time,
           location,
           capacity,
           status,
@@ -77,13 +105,12 @@ export function SessionEditForm({ session }: Props) {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="se-label">Display label</Label>
+          <Label htmlFor="se-time">Start time</Label>
           <Input
-            id="se-label"
-            type="text"
-            placeholder="Thu 19:00"
-            value={weekdayTime}
-            onChange={(e) => setWeekdayTime(e.target.value)}
+            id="se-time"
+            type="time"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
             required
           />
         </div>
@@ -133,6 +160,26 @@ export function SessionEditForm({ session }: Props) {
       </Button>
       {saved && <p className="text-sm font-medium text-success">Saved.</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <AlertDialog open={confirmDoneOpen} onOpenChange={setConfirmDoneOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark this session as done?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This cannot be reversed. The status select will lock after save.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={runSave}
+              className={cn(buttonVariants({ variant: "destructive" }))}
+            >
+              Yes, mark done
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </form>
   );
 }

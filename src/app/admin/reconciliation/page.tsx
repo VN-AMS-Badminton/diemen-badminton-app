@@ -1,136 +1,77 @@
 import { createServerSupabase } from "@/lib/supabase/server";
+import { resolvePaymentDeadlines } from "@/lib/sessions/resolve-payment-deadlines";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PaymentRowActions } from "@/components/admin/payment-row-actions";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatTime } from "@/lib/format";
+import type { AttendanceSource, PaymentStatus } from "@/lib/db/types";
+
+const SOURCE_LABEL: Record<AttendanceSource, string> = {
+  subscription: "Subscription",
+  drop_in: "Drop-in",
+  passed: "Passed slot",
+  referral: "Referral",
+};
 
 export default async function ReconciliationPage() {
   const sb = createServerSupabase();
-  const todayIso = new Date().toISOString().slice(0, 10);
-
   const { data: session } = await sb
     .from("sessions")
     .select("*")
-    .gte("date", todayIso)
+    .gte("start_at", new Date().toISOString())
     .eq("status", "scheduled")
-    .order("date", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  // current season for subscription view
-  const { data: activeSeason } = await sb
-    .from("seasons")
-    .select("*")
-    .in("status", ["booked", "active"])
-    .order("created_at", { ascending: false })
+    .order("start_at", { ascending: true })
     .limit(1)
     .maybeSingle();
 
   type AttRow = {
     id: string;
-    payment_status: string;
-    source: string;
-    players: { username: string; whatsapp_number: string } | null;
+    source: AttendanceSource;
+    payment_status: PaymentStatus;
+    players: { username: string; whatsapp_number: string | null } | null;
   };
   let attRows: AttRow[] = [];
   if (session) {
+    // Sweep expired unpaid drop-ins so the reconciliation list matches reality.
+    await resolvePaymentDeadlines(session.id);
     const { data } = await sb
       .from("attendance")
       .select(
-        "id, payment_status, source, players:player_id(username, whatsapp_number)",
+        "id, source, payment_status, players:player_id(username, whatsapp_number)",
       )
       .eq("session_id", session.id)
       .eq("rsvp_status", "in")
+      .order("source")
       .order("created_at");
     attRows = (data ?? []) as unknown as AttRow[];
   }
 
-  type SubRow = {
-    id: string;
-    status: string;
-    players: { username: string; whatsapp_number: string } | null;
-  };
-  let subRows: SubRow[] = [];
-  if (activeSeason) {
-    const { data } = await sb
-      .from("subscriptions")
-      .select("id, status, players:player_id(username, whatsapp_number)")
-      .eq("season_id", activeSeason.id)
-      .in("status", ["confirmed", "paid"])
-      .order("created_at");
-    subRows = (data ?? []) as unknown as SubRow[];
-  }
+  const subscriptionCount = attRows.filter(
+    (r) => r.source === "subscription",
+  ).length;
+  const dropInCount = attRows.filter((r) => r.source === "drop_in").length;
+  const otherCount = attRows.length - subscriptionCount - dropInCount;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <h1 className="text-2xl font-bold">Reconciliation</h1>
 
-      {/* Subscriptions section */}
-      {activeSeason ? (
+      {!session ? (
+        <EmptyState title="No upcoming session" />
+      ) : (
         <Card>
           <CardHeader>
             <CardTitle>
-              Subscriptions — {activeSeason.year_month}
+              Next session — {formatDate(session.start_at)} · {formatTime(session.start_at)}
             </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {subscriptionCount} subscribers · {dropInCount} drop-ins
+              {otherCount > 0 ? ` · ${otherCount} other` : ""}
+            </p>
           </CardHeader>
           <CardContent>
-            {subRows.length === 0 ? (
-              <EmptyState title="No subscribers yet" />
-            ) : (
-              <Table>
-                <THead>
-                  <TR>
-                    <TH>Player</TH>
-                    <TH>Status</TH>
-                    <TH className="text-right">Actions</TH>
-                  </TR>
-                </THead>
-                <TBody>
-                  {subRows.map((s) => (
-                    <TR key={s.id}>
-                      <TD>
-                        <div className="font-medium">{s.players?.username}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {s.players?.whatsapp_number}
-                        </div>
-                      </TD>
-                      <TD>
-                        <Badge
-                          variant={
-                            s.status === "paid" ? "success" : "warning"
-                          }
-                        >
-                          {s.status}
-                        </Badge>
-                      </TD>
-                      <TD>
-                        <PaymentRowActions
-                          subscriptionId={s.id}
-                          currentStatus={s.status}
-                        />
-                      </TD>
-                    </TR>
-                  ))}
-                </TBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <EmptyState title="No active season" />
-      )}
-
-      {/* This-week attendance section */}
-      {session ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              Next session — {formatDate(session.date)} (drop-ins + week pay)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
             {attRows.length === 0 ? (
               <EmptyState title="No attendees yet" />
             ) : (
@@ -140,49 +81,53 @@ export default async function ReconciliationPage() {
                     <TH>Player</TH>
                     <TH>Source</TH>
                     <TH>Payment</TH>
-                    <TH className="text-right">Actions</TH>
+                    <TH className="text-right">Action</TH>
                   </TR>
                 </THead>
                 <TBody>
-                  {attRows.map((r) => (
-                    <TR key={r.id}>
-                      <TD>
-                        <div className="font-medium">{r.players?.username}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {r.players?.whatsapp_number}
-                        </div>
-                      </TD>
-                      <TD>{r.source}</TD>
-                      <TD>
-                        <Badge
-                          variant={
-                            r.payment_status === "admin_confirmed"
-                              ? "success"
-                              : r.payment_status === "self_marked_paid"
-                                ? "warning"
-                                : r.payment_status === "owed"
-                                  ? "destructive"
-                                  : "outline"
-                          }
-                        >
-                          {r.payment_status}
-                        </Badge>
-                      </TD>
-                      <TD>
-                        <PaymentRowActions
-                          attendanceId={r.id}
-                          currentStatus={r.payment_status}
-                        />
-                      </TD>
-                    </TR>
-                  ))}
+                  {attRows.map((r) => {
+                    const isFlagged = r.payment_status === "flagged";
+                    const isUnpaid = r.payment_status === "unpaid";
+                    const badgeVariant = isFlagged
+                      ? "destructive"
+                      : isUnpaid
+                        ? "warning"
+                        : "success";
+                    const badgeLabel = isFlagged
+                      ? "flagged"
+                      : isUnpaid
+                        ? "unpaid"
+                        : "assumed paid";
+                    return (
+                      <TR key={r.id}>
+                        <TD>
+                          <div className="font-medium">
+                            {r.players?.username}
+                          </div>
+                          {r.players?.whatsapp_number && (
+                            <div className="text-xs text-muted-foreground">
+                              {r.players.whatsapp_number}
+                            </div>
+                          )}
+                        </TD>
+                        <TD>{SOURCE_LABEL[r.source] ?? r.source}</TD>
+                        <TD>
+                          <Badge variant={badgeVariant}>{badgeLabel}</Badge>
+                        </TD>
+                        <TD>
+                          <PaymentRowActions
+                            attendanceId={r.id}
+                            isFlagged={isFlagged}
+                          />
+                        </TD>
+                      </TR>
+                    );
+                  })}
                 </TBody>
               </Table>
             )}
           </CardContent>
         </Card>
-      ) : (
-        <EmptyState title="No upcoming session" />
       )}
     </div>
   );

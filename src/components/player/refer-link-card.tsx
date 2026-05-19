@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -10,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useAnnounce } from "@/components/ui/live-announcer";
 import { formatDate } from "@/lib/format";
 import type { MyReferralRow, ReferralRowStatus } from "@/lib/referrals/list-my-referrals";
 
@@ -25,6 +27,8 @@ interface Payload {
 // generate/revoke buttons — every active member has one code for life. The
 // per-row Cancel button is the only mutation surface here.
 export function ReferLinkCard({ initial }: { initial: Payload }) {
+  const router = useRouter();
+  const announce = useAnnounce();
   const [payload, setPayload] = React.useState<Payload>(initial);
   const [copied, setCopied] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -41,6 +45,7 @@ export function ReferLinkCard({ initial }: { initial: Payload }) {
     try {
       await navigator.clipboard.writeText(link);
       setCopied(true);
+      announce("Link copied");
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // clipboard blocked — fallback handled visually
@@ -73,6 +78,9 @@ export function ReferLinkCard({ initial }: { initial: Payload }) {
         return;
       }
       await refresh();
+      announce("Referral cancelled");
+      // Re-render server tree so NextSessionCard's confirmedInCount drops.
+      router.refresh();
     } finally {
       setPendingId(null);
     }
@@ -136,7 +144,7 @@ export function ReferLinkCard({ initial }: { initial: Payload }) {
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{r.guestName}</div>
                     <div className="text-xs text-muted-foreground">
-                      {r.sessionDate ? formatDate(r.sessionDate) : "—"}
+                      {r.sessionStartAt ? formatDate(r.sessionStartAt) : "—"}
                     </div>
                   </div>
                   <StatusChip status={r.status} />

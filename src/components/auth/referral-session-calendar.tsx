@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { formatDate, formatWeekday } from "@/lib/format";
+import { MapPin, Zap } from "lucide-react";
+import { formatDate, formatTime, formatWeekday } from "@/lib/format";
+import { localDateFromStartAt } from "@/lib/amsterdam-time-utils";
 import type { UpcomingSessionRow } from "@/lib/referrals/list-upcoming-sessions-for-referral";
 
 interface Props {
@@ -10,14 +12,8 @@ interface Props {
   onSelect: (id: string) => void;
 }
 
-// ISO date helpers (yyyy-mm-dd) — sessions.date is stored as date-only.
 function ymd(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-function parseYmd(s: string): Date {
-  // Treat as local-noon to dodge DST/UTC off-by-one when iterating days.
-  const [y, m, d] = s.split("-").map(Number);
-  return new Date(y, m - 1, d, 12);
+  return d.toLocaleDateString("sv-SE", { timeZone: "Europe/Amsterdam" });
 }
 function monthLabel(d: Date): string {
   return new Intl.DateTimeFormat("nl-NL", {
@@ -102,7 +98,7 @@ export function ReferralSessionCalendar({
 }: Props) {
   const sessionsByDate = React.useMemo(() => {
     const m = new Map<string, UpcomingSessionRow>();
-    for (const s of sessions) m.set(s.date, s);
+    for (const s of sessions) m.set(localDateFromStartAt(s.startAt), s);
     return m;
   }, [sessions]);
 
@@ -110,7 +106,7 @@ export function ReferralSessionCalendar({
   const monthsWithSessions = React.useMemo(() => {
     const set = new Set<string>();
     for (const s of sessions) {
-      const d = parseYmd(s.date);
+      const d = new Date(s.startAt);
       set.add(`${d.getFullYear()}-${d.getMonth()}`);
     }
     return Array.from(set)
@@ -225,8 +221,8 @@ export function ReferralSessionCalendar({
               onClick={() => !isFull && onSelect(cell.session.id)}
               disabled={isFull}
               aria-pressed={isSelected ? "true" : "false"}
-              aria-label={`${formatWeekday(cell.session.date)} ${formatDate(
-                cell.session.date,
+              aria-label={`${formatWeekday(cell.session.startAt)} ${formatDate(
+                cell.session.startAt,
               )}, ${cell.session.confirmedCount} of ${
                 cell.session.capacity
               } confirmed${isFull ? ", full" : ""}`}
@@ -252,12 +248,21 @@ export function ReferralSessionCalendar({
         {selectedSession ? (
           <div className="space-y-0.5">
             <div className="font-semibold">
-              {formatWeekday(selectedSession.date)} ·{" "}
-              {formatDate(selectedSession.date)}
+              {formatWeekday(selectedSession.startAt)} ·{" "}
+              {formatDate(selectedSession.startAt)}
             </div>
             <div className="text-xs text-muted-foreground">
-              {selectedSession.weekdayTime}
-              {selectedSession.location ? ` · 📍 ${selectedSession.location}` : ""}
+              {formatTime(selectedSession.startAt)}
+              {selectedSession.location && (
+                <>
+                  {" · "}
+                  <MapPin
+                    className="inline h-3.5 w-3.5 align-text-bottom"
+                    aria-hidden
+                  />{" "}
+                  {selectedSession.location}
+                </>
+              )}
             </div>
             <div className="text-xs text-muted-foreground">
               {selectedSession.full
@@ -265,8 +270,9 @@ export function ReferralSessionCalendar({
                 : `${selectedSession.confirmedCount}/${selectedSession.capacity} confirmed`}
             </div>
             {selectedSession.subCutoff && !selectedSession.full && (
-              <div className="text-xs font-medium text-warning-foreground">
-                ⚡ Tonight — final spot, no tentative window
+              <div className="inline-flex items-center gap-1 text-xs font-medium text-warning-foreground">
+                <Zap className="h-3.5 w-3.5" aria-hidden />
+                Tonight — final spot, no tentative window
               </div>
             )}
           </div>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth/get-session";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { getNextSession } from "@/lib/sessions/get-next-session";
@@ -27,25 +28,52 @@ export default async function DashboardPage() {
   ]);
 
   if (!player) {
-    return null;
+    // Session JWT is valid but the player row is gone (e.g. DB reseed during dev).
+    // Clear the stale cookie and send them back to the login screen instead of
+    // rendering a blank page.
+    redirect("/api/auth/logout");
   }
 
-  const pollSubscription = poll
-    ? await sb
-        .from("subscriptions")
-        .select("status")
-        .eq("season_id", poll.id)
-        .eq("player_id", session.sub)
-        .maybeSingle()
-        .then((r) => r.data)
-    : null;
+  // Sessions for the poll season — we need both the list (to render in the
+  // poll card) and the IDs (to test if the player already has subscription
+  // attendance rows in this season).
+  type PollSession = {
+    id: string;
+    start_at: string;
+    location: string;
+  };
+  let pollSessions: PollSession[] = [];
+  let isSubscribed = false;
+  if (poll) {
+    const { data } = await sb
+      .from("sessions")
+      .select("id, start_at, location")
+      .eq("season_id", poll.id)
+      .eq("status", "scheduled")
+      .order("start_at");
+    pollSessions = (data ?? []) as PollSession[];
 
-  // Show poll card while season is in poll phase and player hasn't been confirmed/paid yet.
-  const showPoll =
+    if (pollSessions.length > 0) {
+      const { count } = await sb
+        .from("attendance")
+        .select("id", { count: "exact", head: true })
+        .eq("player_id", session.sub)
+        .eq("source", "subscription")
+        .in(
+          "session_id",
+          pollSessions.map((s) => s.id),
+        );
+      isSubscribed = (count ?? 0) > 0;
+    }
+  }
+
+  const pollOpen =
     !!poll &&
-    (!pollSubscription ||
-      pollSubscription.status === "cancelled" ||
-      pollSubscription.status === "opted_in");
+    poll.status === "poll" &&
+    poll.poll_closes_at >= new Date().toISOString();
+
+  const tikkieUrl =
+    poll?.tikkie_url_override ?? process.env.TIKKIE_DEFAULT_URL ?? "";
 
   return (
     <main className="container mx-auto max-w-md space-y-6 px-4 py-6">
@@ -69,34 +97,22 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      {showPoll && poll && (
+      {poll && (
         <SeasonPollCard
           seasonId={poll.id}
           yearMonth={poll.year_month}
-          currentStatus={
-            pollSubscription?.status === "opted_in"
-              ? "opted_in"
-              : pollSubscription?.status === "cancelled"
-                ? "cancelled"
-                : null
-          }
+          sessions={pollSessions}
+          perSessionCents={poll.subscription_fee_per_session_cents}
+          tikkieUrl={tikkieUrl}
+          username={player.username}
+          isSubscribed={isSubscribed}
+          pollOpen={pollOpen}
         />
       )}
 
       <NextSessionCard
         data={next}
         username={player.username}
-        subscriptionRow={
-          next
-            ? await sb
-                .from("subscriptions")
-                .select("id, status")
-                .eq("season_id", next.season.id)
-                .eq("player_id", session.sub)
-                .maybeSingle()
-                .then((r) => r.data ?? null)
-            : null
-        }
         waitlist={
           next ? await getWaitlistPosition(next.session.id, session.sub) : null
         }

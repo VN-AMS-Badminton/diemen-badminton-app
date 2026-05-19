@@ -1,6 +1,9 @@
+import Link from "next/link";
+import { MapPin } from "lucide-react";
 import { getReferralByCode } from "@/lib/referrals/get-referral-by-code";
 import { getRemainingSlots } from "@/lib/referrals/get-remaining-slots";
 import { listUpcomingSessionsForReferral } from "@/lib/referrals/list-upcoming-sessions-for-referral";
+import { getOptionalSession } from "@/lib/auth/get-session";
 import { ReferralActivationForm } from "@/components/auth/referral-activation-form";
 
 interface PageProps {
@@ -24,6 +27,31 @@ export default async function ReferActivatePage({ params }: PageProps) {
           The person who shared this link is no longer an active member.
           Ask another member for an invite.
         </p>
+      </main>
+    );
+  }
+
+  // Self-referral SSR guard: a logged-in member visiting their own link
+  // shouldn't see the activation form. Server-side activate endpoint also
+  // rejects this, but the page-level guard avoids a confusing UI.
+  const caller = await getOptionalSession();
+  if (caller && caller.sub === referral.referrer.id) {
+    return (
+      <main className="container mx-auto flex min-h-dvh max-w-md flex-col justify-center space-y-3 px-4 py-8">
+        <p className="overline">Your referral link</p>
+        <h1 className="text-2xl font-extrabold tracking-tight">
+          This is your link
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Share it with a friend to invite them — you can&apos;t claim your own
+          free trial.
+        </p>
+        <Link
+          href="/dashboard"
+          className="text-sm font-semibold text-brand underline-offset-2 hover:underline"
+        >
+          ← Back to dashboard
+        </Link>
       </main>
     );
   }
@@ -75,16 +103,17 @@ export default async function ReferActivatePage({ params }: PageProps) {
           spot is held until 24h before the session.
         </p>
         {distinctVenues.length === 1 && (
-          <p className="text-sm text-muted-foreground">
-            📍{" "}
+          <p className="inline-flex items-center justify-center gap-1 text-sm text-muted-foreground">
+            <MapPin className="h-3.5 w-3.5" aria-hidden />
             <span className="font-medium text-foreground">
               {distinctVenues[0]}
             </span>
           </p>
         )}
         {distinctVenues.length > 1 && (
-          <p className="text-sm text-muted-foreground">
-            📍 Multiple venues — see the day details after picking a date.
+          <p className="inline-flex items-center justify-center gap-1 text-sm text-muted-foreground">
+            <MapPin className="h-3.5 w-3.5" aria-hidden />
+            Multiple venues — see the day details after picking a date.
           </p>
         )}
       </header>

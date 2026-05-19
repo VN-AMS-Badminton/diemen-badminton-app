@@ -2,8 +2,6 @@ import { createServerSupabase } from "@/lib/supabase/server";
 
 export interface UpcomingSessionRow {
   id: string;
-  date: string;
-  weekdayTime: string;
   // Mandatory per DB schema; type narrowed from nullable for downstream UI.
   location: string;
   capacity: number;
@@ -27,18 +25,15 @@ export async function listUpcomingSessionsForReferral(): Promise<
   const sb = createServerSupabase();
 
   const now = new Date();
-  const todayIso = now.toISOString().slice(0, 10);
-  const windowEnd = new Date(now.getFullYear(), now.getMonth() + 2, 0)
-    .toISOString()
-    .slice(0, 10);
+  const windowEnd = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString();
 
   const { data: sessions } = await sb
     .from("sessions")
-    .select("id, date, weekday_time, location, capacity, status, start_at")
+    .select("id, location, capacity, status, start_at")
     .eq("status", "scheduled")
-    .gte("date", todayIso)
-    .lte("date", windowEnd)
-    .order("date", { ascending: true });
+    .gte("start_at", now.toISOString())
+    .lte("start_at", windowEnd)
+    .order("start_at", { ascending: true });
 
   if (!sessions || sessions.length === 0) return [];
 
@@ -56,24 +51,17 @@ export async function listUpcomingSessionsForReferral(): Promise<
   }
 
   const nowMs = now.getTime();
-  return sessions
-    .map((s) => {
-      const confirmedCount = counts.get(s.id) ?? 0;
-      const startMs = new Date(s.start_at).getTime();
-      const subCutoff = startMs - nowMs < CUTOFF_MS;
-      return {
-        id: s.id,
-        date: s.date,
-        weekdayTime: s.weekday_time,
-        location: s.location,
-        capacity: s.capacity,
-        confirmedCount,
-        full: confirmedCount >= s.capacity,
-        startAt: s.start_at,
-        subCutoff,
-        _startMs: startMs,
-      };
-    })
-    .filter((s) => s._startMs > nowMs)
-    .map(({ _startMs, ...rest }) => rest);
+  return sessions.map((s) => {
+    const confirmedCount = counts.get(s.id) ?? 0;
+    const subCutoff = new Date(s.start_at).getTime() - nowMs < CUTOFF_MS;
+    return {
+      id: s.id,
+      location: s.location,
+      capacity: s.capacity,
+      confirmedCount,
+      full: confirmedCount >= s.capacity,
+      startAt: s.start_at,
+      subCutoff,
+    };
+  });
 }

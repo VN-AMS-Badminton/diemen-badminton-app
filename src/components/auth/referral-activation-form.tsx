@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
+import { Clock, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatDate, formatWeekday } from "@/lib/format";
+import { formatDate, formatTime, formatWeekday } from "@/lib/format";
 import { ReferralSessionCalendar } from "@/components/auth/referral-session-calendar";
 import type { UpcomingSessionRow } from "@/lib/referrals/list-upcoming-sessions-for-referral";
 
@@ -29,17 +30,21 @@ export function ReferralActivationForm({
   const [doneFor, setDoneFor] = React.useState<UpcomingSessionRow | null>(null);
   const [lockedAtSignup, setLockedAtSignup] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
+  const nameRef = React.useRef<HTMLInputElement>(null);
+  const errorRef = React.useRef<HTMLParagraphElement>(null);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (!selectedSessionId) {
       setError("Pick a session to attend");
+      errorRef.current?.focus();
       return;
     }
     const session = sessions.find((s) => s.id === selectedSessionId);
     if (!session) {
       setError("Pick a session to attend");
+      errorRef.current?.focus();
       return;
     }
     startTransition(async () => {
@@ -54,7 +59,11 @@ export function ReferralActivationForm({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data?.error ?? "Could not activate");
+        const msg = data?.error ?? "Could not activate";
+        setError(msg);
+        const lower = msg.toLowerCase();
+        if (lower.includes("name")) nameRef.current?.focus();
+        else errorRef.current?.focus();
         return;
       }
       const data = await res.json().catch(() => ({}));
@@ -72,19 +81,19 @@ export function ReferralActivationForm({
         <p className="text-sm text-muted-foreground">
           See you on{" "}
           <span className="font-semibold text-foreground">
-            {formatWeekday(doneFor.date)}, {formatDate(doneFor.date)}
+            {formatWeekday(doneFor.startAt)}, {formatDate(doneFor.startAt)}
           </span>
           .
         </p>
-        <p className="text-sm text-muted-foreground">
-          🕒{" "}
+        <p className="inline-flex items-center justify-center gap-1 text-sm text-muted-foreground">
+          <Clock className="h-3.5 w-3.5" aria-hidden />
           <span className="font-medium text-foreground">
-            {doneFor.weekdayTime}
+            {formatTime(doneFor.startAt)}
           </span>
         </p>
         {doneFor.location && (
-          <p className="text-sm text-muted-foreground">
-            📍{" "}
+          <p className="inline-flex items-center justify-center gap-1 text-sm text-muted-foreground">
+            <MapPin className="h-3.5 w-3.5" aria-hidden />
             <span className="font-medium text-foreground">
               {doneFor.location}
             </span>
@@ -92,7 +101,7 @@ export function ReferralActivationForm({
         )}
         <p className="pt-2 text-xs text-muted-foreground">
           {lockedAtSignup
-            ? `Your spot is final — see you there!`
+            ? `Your spot is final — ${referrerName} will be there too. See you on the court!`
             : `Your spot is held until 24h before the session. ${referrerName} will reach out if anything changes.`}
         </p>
       </div>
@@ -116,6 +125,7 @@ export function ReferralActivationForm({
       <div className="space-y-2">
         <Label htmlFor="displayName">Your full name</Label>
         <Input
+          ref={nameRef}
           id="displayName"
           autoComplete="name"
           placeholder="e.g. Anna Janssen"
@@ -137,7 +147,12 @@ export function ReferralActivationForm({
       </div>
 
       {error && (
-        <p className="text-sm text-destructive" role="alert">
+        <p
+          ref={errorRef}
+          className="text-sm text-destructive"
+          role="alert"
+          tabIndex={-1}
+        >
           {error}
         </p>
       )}

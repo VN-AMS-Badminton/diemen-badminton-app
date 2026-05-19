@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 
-// Destructive delete with confirm-prompt that surfaces RSVP count.
+// Destructive delete with AlertDialog confirm that surfaces RSVP count.
 // Cascade-deletes attendance rows (existing FK ON DELETE CASCADE).
 
 interface Props {
@@ -19,38 +19,31 @@ export function SessionDeleteButton({
   sessionLabel,
 }: Props) {
   const router = useRouter();
-  const [pending, startTransition] = React.useTransition();
-  const [error, setError] = React.useState<string | null>(null);
 
-  function onClick() {
-    const msg = `Delete session "${sessionLabel}"?\n\nThis will remove ${rsvpCount} attendance row${rsvpCount === 1 ? "" : "s"} (RSVPs + payment history).`;
-    if (!confirm(msg)) return;
-    setError(null);
-    startTransition(async () => {
-      const res = await fetch(`/api/admin/sessions/${sessionId}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data?.error ?? "Delete failed");
-        return;
-      }
-      router.refresh();
+  async function onConfirm() {
+    const res = await fetch(`/api/admin/sessions/${sessionId}`, {
+      method: "DELETE",
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { ok: false, error: data?.error ?? "Delete failed" };
+    }
+    router.refresh();
+    return { ok: true };
   }
 
+  const rowLabel = `${rsvpCount} attendance row${rsvpCount === 1 ? "" : "s"}`;
+
   return (
-    <span className="inline-flex flex-col items-end gap-1">
-      <Button
-        type="button"
-        variant="destructive"
-        size="sm"
-        onClick={onClick}
-        disabled={pending}
-      >
-        {pending ? "Deleting..." : "Delete"}
-      </Button>
-      {error && <span className="text-xs text-destructive">{error}</span>}
-    </span>
+    <ConfirmActionButton
+      label="Delete"
+      title={`Delete session "${sessionLabel}"?`}
+      description={`This will remove ${rowLabel} (RSVPs + payment history).`}
+      confirmLabel="Delete"
+      pendingLabel="Deleting..."
+      confirmVariant="destructive"
+      triggerVariant="destructive"
+      onConfirm={onConfirm}
+    />
   );
 }

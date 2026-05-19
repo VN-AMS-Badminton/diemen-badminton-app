@@ -11,7 +11,7 @@ export async function verifyPin(pin: string, hash: string): Promise<boolean> {
 }
 
 export function isValidPlayerPin(pin: string): boolean {
-  return /^\d{4}$/.test(pin);
+  return /^\d{6}$/.test(pin);
 }
 
 export function isValidAdminPin(pin: string): boolean {

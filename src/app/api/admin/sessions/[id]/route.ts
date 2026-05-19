@@ -3,13 +3,26 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/get-session";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { writeAudit } from "@/lib/admin/audit";
+import { sendPushToPlayers } from "@/lib/notifications/send-push";
+import {
+  sessionCancelledPayload,
+  sessionUpdatedPayload,
+} from "@/lib/notifications/push-payload";
+import {
+  toAmsterdamTimestamp,
+  localDateFromStartAt,
+} from "@/lib/amsterdam-time-utils";
+import { formatTime } from "@/lib/format";
 
 const PatchSchema = z.object({
   date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD")
     .optional(),
-  weekday_time: z.string().min(1).max(40).optional(),
+  time: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, "Time must be HH:MM")
+    .optional(),
   location: z.string().trim().min(1, "Location is required").max(200).optional(),
   capacity: z.number().int().min(1).max(200).optional(),
   tikkie_url: z.string().url().or(z.literal("")).nullable().optional(),
@@ -51,27 +64,18 @@ export async function PATCH(
     );
   }
 
-  // Date collision check (when changing to a new date).
-  if (parsed.data.date && parsed.data.date !== existing.date) {
-    const { data: clash } = await sb
-      .from("sessions")
-      .select("id")
-      .eq("season_id", existing.season_id)
-      .eq("date", parsed.data.date)
-      .neq("id", id)
-      .maybeSingle();
-    if (clash) {
-      return NextResponse.json(
-        { error: "Another session already exists on that date" },
-        { status: 409 },
-      );
-    }
+  // Build patch payload.
+  const patch: Record<string, unknown> = {};
+
+  // Recompute start_at when date or time changes.
+  if (parsed.data.date !== undefined || parsed.data.time !== undefined) {
+    const existingDate = localDateFromStartAt(existing.start_at);
+    const existingTime = formatTime(existing.start_at);
+    const newDate = parsed.data.date ?? existingDate;
+    const newTime = parsed.data.time ?? existingTime;
+    patch.start_at = toAmsterdamTimestamp(newDate, newTime);
   }
 
-  // Build patch payload — null-normalise empty strings on optional fields.
-  const patch: Record<string, unknown> = {};
-  if (parsed.data.date !== undefined) patch.date = parsed.data.date;
-  if (parsed.data.weekday_time !== undefined) patch.weekday_time = parsed.data.weekday_time;
   if (parsed.data.location !== undefined) patch.location = parsed.data.location;
   if (parsed.data.capacity !== undefined) patch.capacity = parsed.data.capacity;
   if (parsed.data.tikkie_url !== undefined) {
@@ -90,6 +94,13 @@ export async function PATCH(
     .select()
     .maybeSingle();
   if (error || !updated) {
+    const isConflict = error?.code === "23505";
+    if (isConflict) {
+      return NextResponse.json(
+        { error: "Another session already exists on that date" },
+        { status: 409 },
+      );
+    }
     return NextResponse.json(
       { error: error?.message ?? "Update failed" },
       { status: 500 },
@@ -97,6 +108,31 @@ export async function PATCH(
   }
 
   await writeAudit(session.sub, "update_session", "session", id, existing, updated);
+
+  // Notify subscribed attendees on meaningful field changes.
+  const relevantChanged =
+    patch.start_at !== undefined ||
+    patch.location !== undefined ||
+    patch.status !== undefined;
+
+  if (relevantChanged) {
+    const label = `${formatTime(updated.start_at)} (${localDateFromStartAt(updated.start_at)})`;
+    const isCancelled = updated.status === "cancelled" && existing.status !== "cancelled";
+    const pushPayload = isCancelled
+      ? sessionCancelledPayload(label)
+      : sessionUpdatedPayload(label);
+
+    const { data: attendees } = await sb
+      .from("attendance")
+      .select("player_id")
+      .eq("session_id", id);
+    const playerIds = (attendees ?? []).map((a) => a.player_id);
+
+    sendPushToPlayers(playerIds, pushPayload).catch((err) =>
+      console.error("[push] session update notify failed", err),
+    );
+  }
+
   return NextResponse.json({ ok: true });
 }
 
@@ -117,11 +153,12 @@ export async function DELETE(
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
 
-  // Count attendance rows for response payload (informative for UI).
-  const { count: attendanceCount } = await sb
+  // Snapshot attendees BEFORE cascade delete so we can notify them.
+  const { data: attendees, count: attendanceCount } = await sb
     .from("attendance")
-    .select("id", { count: "exact", head: true })
+    .select("player_id", { count: "exact" })
     .eq("session_id", id);
+  const attendeeIds = (attendees ?? []).map((a) => a.player_id);
 
   const { error } = await sb.from("sessions").delete().eq("id", id);
   if (error) {
@@ -129,5 +166,11 @@ export async function DELETE(
   }
 
   await writeAudit(session.sub, "delete_session", "session", id, existing, null);
+
+  const label = `${formatTime(existing.start_at)} (${localDateFromStartAt(existing.start_at)})`;
+  sendPushToPlayers(attendeeIds, sessionCancelledPayload(label)).catch((err) =>
+    console.error("[push] session delete notify failed", err),
+  );
+
   return NextResponse.json({ ok: true, attendanceDeleted: attendanceCount ?? 0 });
 }

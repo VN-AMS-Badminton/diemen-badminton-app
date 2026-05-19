@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { MapPin } from "lucide-react";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
@@ -10,8 +11,14 @@ import { SessionTikkieUrlForm } from "@/components/admin/session-tikkie-url-form
 import { SessionEditForm } from "@/components/admin/session-edit-form";
 import { RefundSlotButton } from "@/components/admin/refund-slot-button";
 import { resolveCutoffIfDue } from "@/lib/sessions/resolve-cutoff";
-import { formatDate } from "@/lib/format";
-import type { SessionStatus } from "@/lib/db/types";
+import { resolvePaymentDeadlines } from "@/lib/sessions/resolve-payment-deadlines";
+import { formatDate, formatTime } from "@/lib/format";
+import type {
+  AttendanceSource,
+  PaymentStatus,
+  RsvpStatus,
+  SessionStatus,
+} from "@/lib/db/types";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -20,8 +27,10 @@ interface Props {
 export default async function AdminSessionDetail({ params }: Props) {
   const { id } = await params;
   const sb = createServerSupabase();
-  // Resolve cutoff before reading attendance so admin sees post-cutoff state.
+  // Resolve cutoff + expired drop-in deadlines before reading attendance so
+  // admin sees the fully reconciled state.
   await resolveCutoffIfDue(id);
+  await resolvePaymentDeadlines(id);
   const { data: sess } = await sb
     .from("sessions")
     .select("*")
@@ -31,9 +40,9 @@ export default async function AdminSessionDetail({ params }: Props) {
 
   type R = {
     id: string;
-    source: string;
-    rsvp_status: string;
-    payment_status: string;
+    source: AttendanceSource;
+    rsvp_status: RsvpStatus;
+    payment_status: PaymentStatus;
     is_tentative: boolean;
     bumped_at: string | null;
     created_at: string;
@@ -83,8 +92,11 @@ export default async function AdminSessionDetail({ params }: Props) {
     (r) => r.rsvp_status === "in" && r.is_tentative && r.bumped_at === null,
   ).length;
   const bumpedCount = attendeeRows.filter((r) => r.bumped_at !== null).length;
-  const owed = attendeeRows.filter(
-    (r) => r.rsvp_status === "in" && r.payment_status === "owed",
+  const flagged = attendeeRows.filter(
+    (r) => r.rsvp_status === "in" && r.payment_status === "flagged",
+  ).length;
+  const unpaid = attendeeRows.filter(
+    (r) => r.rsvp_status === "in" && r.payment_status === "unpaid",
   ).length;
 
   return (
@@ -96,11 +108,18 @@ export default async function AdminSessionDetail({ params }: Props) {
         >
           ← Back to sessions
         </Link>
-        <h1 className="mt-2 text-2xl font-bold">{formatDate(sess.date)}</h1>
+        <h1 className="mt-2 text-2xl font-bold">{formatDate(sess.start_at)}</h1>
         <p className="text-sm text-muted-foreground">
-          {sess.weekday_time}
-          {sess.location ? ` · 📍 ${sess.location}` : ""} · {confirmed}/
-          {sess.capacity} confirmed · {owed} owed
+          {formatTime(sess.start_at)}
+          {sess.location && (
+            <>
+              {" · "}
+              <MapPin className="inline h-3.5 w-3.5 align-text-bottom" aria-hidden />{" "}
+              {sess.location}
+            </>
+          )}
+          {" · "}{confirmed}/{sess.capacity} confirmed · {flagged} flagged
+          {unpaid > 0 ? ` · ${unpaid} unpaid` : ""}
           {tentativeCount > 0 ? ` · ${tentativeCount} tentative` : ""}
           {bumpedCount > 0 ? ` · ${bumpedCount} bumped` : ""}
           {waitlistRows.length > 0
@@ -117,8 +136,7 @@ export default async function AdminSessionDetail({ params }: Props) {
           <SessionEditForm
             session={{
               id: sess.id,
-              date: sess.date,
-              weekday_time: sess.weekday_time,
+              start_at: sess.start_at,
               location: sess.location,
               capacity: sess.capacity,
               status: sess.status as SessionStatus,
@@ -147,44 +165,40 @@ export default async function AdminSessionDetail({ params }: Props) {
           {attendeeRows.length === 0 ? (
             <EmptyState title="No attendees yet" />
           ) : (
-            <Table>
-              <THead>
-                <TR>
-                  <TH>Player</TH>
-                  <TH>Source</TH>
-                  <TH>RSVP</TH>
-                  <TH>Payment</TH>
-                  <TH className="text-right">Actions</TH>
-                </TR>
-              </THead>
-              <TBody>
+            <>
+              {/* Phone-first card view: stacked rows, no horizontal table scroll. */}
+              <div className="space-y-3 md:hidden">
                 {attendeeRows.map((r) => {
                   const referrerName = r.players?.referred_by
                     ? referrerById.get(r.players.referred_by)
                     : null;
                   const isReferralGuest = r.source === "referral";
                   const isBumped = !!r.bumped_at;
+                  const sourceLabel =
+                    r.source === "subscription" ? "sub" : r.source;
                   return (
-                  <TR key={r.id}>
-                    <TD>
-                      <div className="font-medium">
-                        {isReferralGuest && r.players?.display_name
-                          ? r.players.display_name
-                          : r.players?.username}
-                      </div>
-                      {!isReferralGuest && (
-                        <div className="text-xs text-muted-foreground">
-                          {r.players?.whatsapp_number}
+                    <div
+                      key={r.id}
+                      className="space-y-2 rounded-md border bg-card px-3 py-2.5 text-sm"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-medium">
+                            {isReferralGuest && r.players?.display_name
+                              ? r.players.display_name
+                              : r.players?.username}
+                          </div>
+                          {!isReferralGuest && r.players?.whatsapp_number && (
+                            <div className="text-xs text-muted-foreground">
+                              {r.players.whatsapp_number}
+                            </div>
+                          )}
+                          {referrerName && (
+                            <div className="text-xs text-muted-foreground">
+                              guest of {referrerName}
+                            </div>
+                          )}
                         </div>
-                      )}
-                      {referrerName && (
-                        <div className="text-xs text-muted-foreground">
-                          guest of {referrerName}
-                        </div>
-                      )}
-                    </TD>
-                    <TD>
-                      <div className="flex flex-wrap gap-1">
                         <Badge
                           variant={
                             r.source === "referral"
@@ -194,60 +208,177 @@ export default async function AdminSessionDetail({ params }: Props) {
                                 : "secondary"
                           }
                         >
-                          {r.source === "subscription" ? "sub" : r.source}
+                          {sourceLabel}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        <Badge
+                          variant={
+                            r.rsvp_status === "in"
+                              ? "success"
+                              : r.rsvp_status === "opted_out"
+                                ? "secondary"
+                                : "outline"
+                          }
+                        >
+                          {r.rsvp_status}
+                        </Badge>
+                        <Badge
+                          variant={
+                            r.payment_status === "flagged"
+                              ? "destructive"
+                              : r.payment_status === "unpaid"
+                                ? "warning"
+                                : "success"
+                          }
+                        >
+                          {r.payment_status === "flagged"
+                            ? "flagged"
+                            : r.payment_status === "unpaid"
+                              ? "unpaid"
+                              : "assumed paid"}
                         </Badge>
                         {r.is_tentative && !isBumped && (
                           <Badge variant="warning">tentative</Badge>
                         )}
-                        {isBumped && <Badge variant="destructive">bumped</Badge>}
-                      </div>
-                    </TD>
-                    <TD>
-                      <Badge
-                        variant={
-                          r.rsvp_status === "in"
-                            ? "success"
-                            : r.rsvp_status === "opted_out"
-                              ? "secondary"
-                              : "outline"
-                        }
-                      >
-                        {r.rsvp_status}
-                      </Badge>
-                    </TD>
-                    <TD>
-                      <Badge
-                        variant={
-                          r.payment_status === "admin_confirmed"
-                            ? "success"
-                            : r.payment_status === "self_marked_paid"
-                              ? "warning"
-                              : r.payment_status === "owed"
-                                ? "destructive"
-                                : "outline"
-                        }
-                      >
-                        {r.payment_status}
-                      </Badge>
-                    </TD>
-                    <TD>
-                      <div className="flex flex-col items-end gap-1">
-                        {r.payment_status !== "n_a" && (
-                          <PaymentRowActions
-                            attendanceId={r.id}
-                            currentStatus={r.payment_status}
-                          />
-                        )}
-                        {isReferralGuest && (isBumped || r.rsvp_status === "cancelled") && (
-                          <RefundSlotButton attendanceId={r.id} />
+                        {isBumped && (
+                          <Badge variant="destructive">bumped</Badge>
                         )}
                       </div>
-                    </TD>
-                  </TR>
+                      {(r.rsvp_status === "in" ||
+                        (isReferralGuest &&
+                          (isBumped || r.rsvp_status === "cancelled"))) && (
+                        <div className="flex flex-wrap justify-end gap-2 pt-1">
+                          {r.rsvp_status === "in" && (
+                            <PaymentRowActions
+                              attendanceId={r.id}
+                              isFlagged={r.payment_status === "flagged"}
+                            />
+                          )}
+                          {isReferralGuest &&
+                            (isBumped || r.rsvp_status === "cancelled") && (
+                              <RefundSlotButton attendanceId={r.id} />
+                            )}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
-              </TBody>
-            </Table>
+              </div>
+
+              {/* Desktop table view: preserved at md+. */}
+              <div className="hidden md:block">
+                <Table>
+                  <THead>
+                    <TR>
+                      <TH>Player</TH>
+                      <TH>Source</TH>
+                      <TH>RSVP</TH>
+                      <TH>Payment</TH>
+                      <TH className="text-right">Actions</TH>
+                    </TR>
+                  </THead>
+                  <TBody>
+                    {attendeeRows.map((r) => {
+                      const referrerName = r.players?.referred_by
+                        ? referrerById.get(r.players.referred_by)
+                        : null;
+                      const isReferralGuest = r.source === "referral";
+                      const isBumped = !!r.bumped_at;
+                      return (
+                        <TR key={r.id}>
+                          <TD>
+                            <div className="font-medium">
+                              {isReferralGuest && r.players?.display_name
+                                ? r.players.display_name
+                                : r.players?.username}
+                            </div>
+                            {!isReferralGuest && (
+                              <div className="text-xs text-muted-foreground">
+                                {r.players?.whatsapp_number}
+                              </div>
+                            )}
+                            {referrerName && (
+                              <div className="text-xs text-muted-foreground">
+                                guest of {referrerName}
+                              </div>
+                            )}
+                          </TD>
+                          <TD>
+                            <div className="flex flex-wrap gap-1">
+                              <Badge
+                                variant={
+                                  r.source === "referral"
+                                    ? "brand"
+                                    : r.source === "passed"
+                                      ? "warning"
+                                      : "secondary"
+                                }
+                              >
+                                {r.source === "subscription"
+                                  ? "sub"
+                                  : r.source}
+                              </Badge>
+                              {r.is_tentative && !isBumped && (
+                                <Badge variant="warning">tentative</Badge>
+                              )}
+                              {isBumped && (
+                                <Badge variant="destructive">bumped</Badge>
+                              )}
+                            </div>
+                          </TD>
+                          <TD>
+                            <Badge
+                              variant={
+                                r.rsvp_status === "in"
+                                  ? "success"
+                                  : r.rsvp_status === "opted_out"
+                                    ? "secondary"
+                                    : "outline"
+                              }
+                            >
+                              {r.rsvp_status}
+                            </Badge>
+                          </TD>
+                          <TD>
+                            <Badge
+                              variant={
+                                r.payment_status === "flagged"
+                                  ? "destructive"
+                                  : r.payment_status === "unpaid"
+                                    ? "warning"
+                                    : "success"
+                              }
+                            >
+                              {r.payment_status === "flagged"
+                                ? "flagged"
+                                : r.payment_status === "unpaid"
+                                  ? "unpaid"
+                                  : "assumed paid"}
+                            </Badge>
+                          </TD>
+                          <TD>
+                            <div className="flex flex-col items-end gap-1">
+                              {r.rsvp_status === "in" && (
+                                <PaymentRowActions
+                                  attendanceId={r.id}
+                                  isFlagged={r.payment_status === "flagged"}
+                                />
+                              )}
+                              {isReferralGuest &&
+                                (isBumped ||
+                                  r.rsvp_status === "cancelled") && (
+                                  <RefundSlotButton attendanceId={r.id} />
+                                )}
+                            </div>
+                          </TD>
+                        </TR>
+                      );
+                    })}
+                  </TBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

@@ -6,11 +6,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+// Season-create form. Captures price commitment (per-session fees + court
+// count), a default location, and the regular weekly schedule (weekday +
+// start time) the batch session creator uses to pre-populate its inputs.
+const WEEKDAYS: ReadonlyArray<{ value: number; label: string }> = [
+  { value: 1, label: "Monday" },
+  { value: 2, label: "Tuesday" },
+  { value: 3, label: "Wednesday" },
+  { value: 4, label: "Thursday" },
+  { value: 5, label: "Friday" },
+  { value: 6, label: "Saturday" },
+  { value: 0, label: "Sunday" },
+];
+
 export function SeasonForm() {
   const router = useRouter();
   const [yearMonth, setYearMonth] = React.useState("");
   const [pollOpens, setPollOpens] = React.useState("");
   const [pollCloses, setPollCloses] = React.useState("");
+  const [courts, setCourts] = React.useState(2);
+  const [location, setLocation] = React.useState("");
+  const [weekday, setWeekday] = React.useState(2); // Tuesday
+  const [startTime, setStartTime] = React.useState("19:00");
   const [subFee, setSubFee] = React.useState(550);
   const [dropFee, setDropFee] = React.useState(700);
   const [tikkie, setTikkie] = React.useState("");
@@ -28,6 +45,10 @@ export function SeasonForm() {
           year_month: yearMonth,
           poll_opens_at: new Date(pollOpens).toISOString(),
           poll_closes_at: new Date(pollCloses).toISOString(),
+          court_count: courts,
+          location,
+          weekday,
+          start_time: startTime,
           subscription_fee_per_session_cents: subFee,
           drop_in_fee_per_session_cents: dropFee,
           tikkie_url_override: tikkie || undefined,
@@ -41,6 +62,7 @@ export function SeasonForm() {
       setYearMonth("");
       setPollOpens("");
       setPollCloses("");
+      setLocation("");
     });
   }
 
@@ -84,6 +106,57 @@ export function SeasonForm() {
             type="datetime-local"
             value={pollCloses}
             onChange={(e) => setPollCloses(e.target.value)}
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="courts">Court count</Label>
+          <Input
+            id="courts"
+            type="number"
+            min={1}
+            max={20}
+            value={courts}
+            onChange={(e) => setCourts(parseInt(e.target.value || "1", 10))}
+            required
+          />
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="loc">Default location (hint for session creator)</Label>
+          <Input
+            id="loc"
+            type="text"
+            placeholder="e.g. Sporthal Diemen — Court 1+2"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            required
+            minLength={1}
+            maxLength={200}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="wd">Weekday</Label>
+          <select
+            id="wd"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            value={weekday}
+            onChange={(e) => setWeekday(parseInt(e.target.value, 10))}
+            required
+          >
+            {WEEKDAYS.map((w) => (
+              <option key={w.value} value={w.value}>
+                {w.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="st">Start time</Label>
+          <Input
+            id="st"
+            type="time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
             required
           />
         </div>

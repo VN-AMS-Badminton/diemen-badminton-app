@@ -2,50 +2,36 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
+import { useAnnounce } from "@/components/ui/live-announcer";
 
 export function ResetTrialButton({ playerId }: { playerId: string }) {
   const router = useRouter();
-  const [pending, startTransition] = React.useTransition();
-  const [error, setError] = React.useState<string | null>(null);
+  const announce = useAnnounce();
 
-  function go() {
-    if (
-      !confirm("Reset this guest's free trial? They'll be eligible to be referred again.")
-    ) {
-      return;
-    }
-    setError(null);
-    startTransition(async () => {
-      const res = await fetch("/api/admin/referrals/reset-trial", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerId }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data?.error ?? "Could not reset trial");
-        return;
-      }
-      router.refresh();
+  async function onConfirm() {
+    const res = await fetch("/api/admin/referrals/reset-trial", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ playerId }),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { ok: false, error: data?.error ?? "Could not reset trial" };
+    }
+    announce("Free trial reset");
+    router.refresh();
+    return { ok: true };
   }
 
   return (
-    <div className="space-y-1">
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={go}
-        disabled={pending}
-      >
-        {pending ? "…" : "Reset free trial"}
-      </Button>
-      {error && (
-        <p className="text-xs text-destructive" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
+    <ConfirmActionButton
+      label="Reset free trial"
+      title="Reset this guest's free trial?"
+      description="They'll be eligible to be referred again."
+      confirmLabel="Reset"
+      confirmVariant="destructive"
+      onConfirm={onConfirm}
+    />
   );
 }
