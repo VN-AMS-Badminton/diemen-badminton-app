@@ -146,3 +146,19 @@
     @apply absolute left-0 top-0 h-1 w-full bg-brand;
   }
 }
+
+/*
+  Global reduced-motion override. Honors user OS setting so vestibular-
+  sensitive users don't see calendar zooms, dialog scales, or pulse
+  skeletons. Applied last so component-level transitions get neutralised.
+*/
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

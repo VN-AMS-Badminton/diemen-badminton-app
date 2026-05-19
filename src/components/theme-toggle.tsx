@@ -48,7 +48,7 @@ export function ThemeToggle({
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
       aria-pressed={theme === "dark"}
       className={cn(
-        "inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors duration-150 ease-precise focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background",
+        "inline-flex h-11 w-11 items-center justify-center rounded-md transition-colors duration-150 ease-precise focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background",
         onBrand
           ? "text-brand-foreground hover:bg-brand-foreground/10"
           : "text-foreground hover:bg-muted",
@@ -57,11 +57,11 @@ export function ThemeToggle({
     >
       {/* Avoid hydration mismatch: render a neutral icon until mounted */}
       {!mounted ? (
-        <Sun className="h-4 w-4 opacity-0" aria-hidden />
+        <Sun className="h-5 w-5 opacity-0" aria-hidden />
       ) : theme === "dark" ? (
-        <Sun className="h-4 w-4" aria-hidden />
+        <Sun className="h-5 w-5" aria-hidden />
       ) : (
-        <Moon className="h-4 w-4" aria-hidden />
+        <Moon className="h-5 w-5" aria-hidden />
       )}
     </button>
   );

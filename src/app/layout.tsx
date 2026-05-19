@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Montserrat } from "next/font/google";
 import "./globals.css";
+import { LiveAnnouncer } from "@/components/ui/live-announcer";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -22,7 +23,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#004185" },
     { media: "(prefers-color-scheme: dark)", color: "#0a1626" },
@@ -50,7 +50,9 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className="min-h-dvh font-sans antialiased">{children}</body>
+      <body className="min-h-dvh font-sans antialiased">
+        <LiveAnnouncer>{children}</LiveAnnouncer>
+      </body>
     </html>
   );
 }
