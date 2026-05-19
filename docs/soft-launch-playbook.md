@@ -9,7 +9,7 @@ A 3-phase rollout designed to surface issues with low blast radius before the fu
 - [ ] Vercel project deployed, custom domain configured if applicable
 - [ ] All env vars set in Vercel (URL, anon key, service role key, session secret, Tikkie URL, app URL)
 - [ ] First admin login tested end-to-end on a real phone
-- [ ] One test invite generated, used to register a test player, approved, logged in, RSVPed, marked paid
+- [ ] One test invite generated, used to register a test player, approved, logged in, RSVPed (trust-first — no self-mark step)
 - [ ] WhatsApp announcement drafted
 - [ ] Existing tracking process documented (the spreadsheet or thread) so it can stay as a backup
 
@@ -23,7 +23,7 @@ Goal: prove the happy path on real devices.
 - Collect feedback in a dedicated WhatsApp DM
 - Fix any P1 bugs found
 
-Exit criteria: 2 players completed a full RSVP+pay+admin-confirm cycle without help.
+Exit criteria: 2 players completed a full subscribe + RSVP cycle without help (admin flags exceptions out-of-band).
 
 ## Phase B — Full club (1 month, parallel)
 
@@ -31,7 +31,7 @@ Goal: full coverage, existing process as safety net.
 
 - Generate invites in batches matching the WhatsApp group
 - Post announcement: "We're trialling an app to replace the spreadsheet — please sign up here. The existing process keeps running so nothing breaks."
-- Run both processes in parallel for one full monthly cycle (poll → book → 4 weekly sessions)
+- Run both processes in parallel for one full monthly cycle (poll → close → 4 weekly sessions)
 - Each week: send a friendly reminder if anyone hasn't RSVPed in the app
 - Track time spent reconciling: target < 10 min/week
 
@@ -80,18 +80,20 @@ Rollback procedure:
 ### Announce cutover (Phase C)
 > From <month>, the app is the only place to RSVP and mark payments. The spreadsheet is read-only and will be archived end-of-month. If you hit any issue, message me directly.
 
-## Flexible Session Scheduling Smoke Test
+## Season Flow Smoke Test (trust-first, post-0017)
 
-Run after applying `0008_add_location_to_sessions.sql` and deploying the new admin session UI. There is no automated test runner — execute manually on a non-production Supabase project.
+Run after applying `0017_season_flow_simplification.sql` and deploying. Execute manually on a non-production Supabase project.
 
-1. **Create season** → opt in as a test player → "Book season" with default weekday/time → verify N sessions generated.
-2. **Edit session #1** at `/admin/sessions/[id]` — change date, display label, location, capacity. Save. Verify changes persist on `/admin/seasons/[id]`.
-3. **Add session** via the "Add a session" card on the season detail page — pick a new date, time, location. Verify it appears and confirmed subscribers get attendance rows auto-created.
-4. **Delete session** from the row's Delete button — confirm prompt surfaces RSVP count. Verify session disappears and attendance rows are cascade-removed.
-5. **Re-run "Book season"** with same inputs — verify success message reports `skipped M existing` and that no manual edits were touched.
-6. **Date collision** — edit a session to a date already used by another session in the same season → expect inline error "Another session already exists on that date".
-7. **Status guard** — mark a session `done`, then try to revert it to `scheduled` → expect "Cannot change status of a completed session".
-8. **Player view** — log in as a confirmed subscriber. On the dashboard, verify the next-session card shows `📍 <location>` line when set, hidden when null. On `/sessions/history`, verify location renders under the date.
+1. **Create season** at `/admin/seasons` — fields no longer include weekday/start-time. Season opens in `poll` status.
+2. **Open season detail** at `/admin/seasons/[id]` — verify the calendar batch-creator card is shown (no "Book season" form).
+3. **Add sessions** — pick 4 days, set time + location + capacity, click "Add 4 sessions". Verify rows appear in the sessions table.
+4. **Subscribe as player** — on dashboard, the poll card lists each session and a total. Click Subscribe → attendance rows are created (one per session, `source=subscription`).
+5. **Cancel as player** — while the poll is open, the Cancel button removes those rows. Re-subscribe is idempotent.
+6. **Close season** — admin clicks "Close season". Status changes to `closed`. Player Subscribe/Cancel buttons disappear.
+7. **Reconciliation** — at `/admin/reconciliation`, verify the next session's attendance is grouped by source. Every row defaults to `assumed_paid`; click Flag to toggle to `flagged`.
+8. **Drop-in flow** — log in as a non-subscriber. RSVP via drop-in. Tikkie link is shown (informational only — no "I paid" button).
+9. **Session history** — players see each attendance row with `paid` or `flagged` badge (no four-state status).
+10. **Edit session** at `/admin/sessions/[id]` — date/time/location/capacity changes still work; status guard still rejects `done → scheduled`.
 
 ## Open Questions (revisit before launch)
 

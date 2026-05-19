@@ -74,7 +74,8 @@ fly secrets set \
 fly deploy \
   --build-arg NEXT_PUBLIC_SUPABASE_URL="https://xxx.supabase.co" \
   --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJ..." \
-  --build-arg NEXT_PUBLIC_APP_URL="https://diemen-badminton.fly.dev"
+  --build-arg NEXT_PUBLIC_APP_URL="https://diemen-badminton.fly.dev" \
+  --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY="<public key from web-push generate-vapid-keys>"
 ```
 
 Wait for the build to finish, then verify:
@@ -101,6 +102,7 @@ Copy the output, then in **GitHub → repo → Settings → Secrets and variable
 | `NEXT_PUBLIC_SUPABASE_URL` | your Supabase URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | your Supabase anon key |
 | `NEXT_PUBLIC_APP_URL` | `https://diemen-badminton.fly.dev` (or custom domain) |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | public key from `npx web-push generate-vapid-keys` |
 
 Push to `main` → GitHub Actions deploys automatically.
 
@@ -120,7 +122,7 @@ Also update the `NEXT_PUBLIC_APP_URL` GitHub secret so future CI deploys use the
 
 | Task | Command |
 |---|---|
-| Manual deploy from local | `fly deploy --build-arg NEXT_PUBLIC_SUPABASE_URL=... --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=... --build-arg NEXT_PUBLIC_APP_URL=...` |
+| Manual deploy from local | `fly deploy --build-arg NEXT_PUBLIC_SUPABASE_URL=... --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=... --build-arg NEXT_PUBLIC_APP_URL=... --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY=...` |
 | Tail logs | `fly logs` |
 | SSH into running VM | `fly ssh console` |
 | Restart | `fly machine restart` |

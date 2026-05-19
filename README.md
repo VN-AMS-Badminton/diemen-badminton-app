@@ -38,6 +38,18 @@ TIKKIE_DEFAULT_URL=https://tikkie.me/pay/<your-personal-link>
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
+For push notifications, generate a VAPID keypair and add to `.env.local`:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+```
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=<public key from above>
+VAPID_PRIVATE_KEY=<private key from above>
+VAPID_SUBJECT=mailto:<your-email>
+```
+
 ### 4. Apply database migrations
 
 Run these SQL files in order in the Supabase SQL editor (or via `supabase db push`):
