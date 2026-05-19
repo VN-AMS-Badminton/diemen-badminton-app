@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/auth/get-session";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChangePinForm } from "@/components/player/change-pin-form";
+import { PushToggle } from "@/components/player/push-toggle";
 import { LogoutButton } from "@/components/auth/logout-button";
 
 export default async function ProfilePage() {
@@ -51,6 +52,15 @@ export default async function ProfilePage() {
         </CardHeader>
         <CardContent>
           <ChangePinForm />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Notifications</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PushToggle />
         </CardContent>
       </Card>
 
