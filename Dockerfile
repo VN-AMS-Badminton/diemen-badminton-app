@@ -10,12 +10,17 @@ WORKDIR /app
 # libc6-compat needed for some native modules on Alpine.
 RUN apk add --no-cache libc6-compat
 
-COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
+# Enable corepack so the pnpm version pinned in `packageManager` is used.
+RUN corepack enable
+
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile --prod=false
 
 # ---------- builder ----------
 FROM node:${NODE_VERSION} AS builder
 WORKDIR /app
+
+RUN corepack enable
 
 # NEXT_PUBLIC_* values are inlined into the client bundle at build time,
 # so they MUST be passed in here (not as runtime secrets).
@@ -33,7 +38,7 @@ ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-RUN npm run build
+RUN pnpm build
 
 # ---------- runner ----------
 FROM node:${NODE_VERSION} AS runner

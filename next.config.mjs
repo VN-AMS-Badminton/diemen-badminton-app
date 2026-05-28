@@ -20,13 +20,6 @@ const nextConfig = {
       },
     ];
   },
-  webpack: (config, { dev }) => {
-    if (!dev) {
-      // Avoid Node 23 / parallel terser JSON-stats truncation bug.
-      config.optimization.minimize = false;
-    }
-    return config;
-  },
 };
 
 export default nextConfig;

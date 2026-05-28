@@ -32,9 +32,8 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# package manager
+# package manager — pnpm is the canonical lockfile (committed)
 yarn.lock
-pnpm-lock.yaml
 
 # semantic-release
 .nyc_output

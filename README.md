@@ -14,7 +14,8 @@ Stack: Next.js 15 (App Router, TS) + Supabase (Postgres + RLS) + Tailwind + shad
 
 ```bash
 nvm use
-npm install
+corepack enable           # one-time: pins pnpm via packageManager field
+pnpm install
 ```
 
 ### 2. Create a Supabase project
@@ -58,14 +59,14 @@ Run these SQL files in order in the Supabase SQL editor (or via `supabase db pus
 2. `supabase/migrations/0003_rls_policies.sql`
 3. Generate an admin PIN hash:
    ```bash
-   npm run hash-pin -- 123456
+   pnpm hash-pin -- 123456
    ```
    Copy the hash output into `supabase/migrations/0002_seed_admin.sql` and customize the admin username + WhatsApp number, then run that migration.
 
 ### 5. Run dev server
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Open http://localhost:3000.

@@ -15,9 +15,9 @@ That's it. Migrations already live in `supabase/migrations/`, and
 ## Daily flow
 
 ```bash
-npm run db:start   # boots Postgres 17 + GoTrue + Storage + Studio (~30s first run)
-npm run db:env     # writes .env.local pointing to the local stack
-npm run dev        # Next.js dev server connects to http://127.0.0.1:54321
+pnpm db:start   # boots Postgres 17 + GoTrue + Storage + Studio (~30s first run)
+pnpm db:env     # writes .env.local pointing to the local stack
+pnpm dev        # Next.js dev server connects to http://127.0.0.1:54321
 ```
 
 Studio (web UI) at <http://127.0.0.1:54323>.
@@ -25,20 +25,20 @@ Studio (web UI) at <http://127.0.0.1:54323>.
 When done:
 
 ```bash
-npm run db:stop
+pnpm db:stop
 ```
 
 ## Useful commands
 
 | Command | What it does |
 |---|---|
-| `npm run db:start` | Boot local stack and auto-apply all migrations |
-| `npm run db:stop` | Stop the local stack (keeps data volumes) |
-| `npm run db:reset` | Re-run migrations from scratch (wipes local data) |
-| `npm run db:status` | Show URLs + keys for the running stack |
-| `npm run db:studio` | Open Studio in browser |
-| `npm run db:migrate:new <name>` | Scaffold a new migration file |
-| `npm run db:env` | Write/refresh `.env.local` with local URLs + keys |
+| `pnpm db:start` | Boot local stack and auto-apply all migrations |
+| `pnpm db:stop` | Stop the local stack (keeps data volumes) |
+| `pnpm db:reset` | Re-run migrations from scratch (wipes local data) |
+| `pnpm db:status` | Show URLs + keys for the running stack |
+| `pnpm db:studio` | Open Studio in browser |
+| `pnpm db:migrate:new <name>` | Scaffold a new migration file |
+| `pnpm db:env` | Write/refresh `.env.local` with local URLs + keys |
 
 ## Environment variables
 
@@ -56,7 +56,7 @@ npm run db:stop
 | `VAPID_PRIVATE_KEY` | Web Push private key (server-only) |
 | `VAPID_SUBJECT` | Mailto address for Web Push, e.g., `mailto:admin@diemen.nl` |
 
-`npm run db:env` populates the Supabase trio + a freshly-generated
+`pnpm db:env` populates the Supabase trio + a freshly-generated
 `SESSION_SECRET` automatically. Tikkie URL and APP_URL get sensible
 defaults — override them if needed.
 
@@ -81,9 +81,9 @@ which one). Never commit prod keys.
    ```
 2. When the change is final, capture it as a migration:
    ```bash
-   npm run db:migrate:new my_change_name
+   pnpm db:migrate:new my_change_name
    # Edit the new file in supabase/migrations/
-   npm run db:reset   # verify it applies cleanly from scratch
+   pnpm db:reset   # verify it applies cleanly from scratch
    ```
 3. Push to prod:
    ```bash
@@ -92,7 +92,7 @@ which one). Never commit prod keys.
 
 ## Troubleshooting
 
-**`npm run db:start` hangs.** Docker isn't running. Launch Docker Desktop
+**`pnpm db:start` hangs.** Docker isn't running. Launch Docker Desktop
 and retry.
 
 **Port conflicts (54321/54322/54323).** Another Supabase project is using
@@ -102,4 +102,4 @@ change ports in `supabase/config.toml`.
 **App still hitting prod after `db:env`.** Restart the Next.js dev server —
 env vars are read at process start.
 
-**Reset everything.** `supabase stop --no-backup && npm run db:start`.
+**Reset everything.** `supabase stop --no-backup && pnpm db:start`.
