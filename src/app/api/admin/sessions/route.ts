@@ -20,6 +20,7 @@ const TimeString = z.string().regex(/^\d{2}:\d{2}$/, "Time must be HH:MM");
 const SharedFields = z.object({
   season_id: z.string().uuid(),
   time: TimeString,
+  end_time: TimeString,
   location: z.string().trim().min(1, "Location is required").max(200),
   capacity: z.number().int().min(1).max(200),
   tikkie_url: z.string().url().or(z.literal("")).nullable().optional(),
@@ -45,7 +46,13 @@ export async function POST(req: Request) {
 
   const dates =
     "dates" in parsed.data ? parsed.data.dates : [parsed.data.date];
-  const { season_id, time, location, capacity, tikkie_url } = parsed.data;
+  const { season_id, time, end_time, location, capacity, tikkie_url } = parsed.data;
+  if (end_time <= time) {
+    return NextResponse.json(
+      { error: "end_time must be after start time" },
+      { status: 400 },
+    );
+  }
 
   const sb = createServerSupabase();
 
@@ -83,11 +90,13 @@ export async function POST(req: Request) {
 
   for (const date of dates) {
     const start_at = toAmsterdamTimestamp(date, time);
+    const end_at = toAmsterdamTimestamp(date, end_time);
     const { data: row, error } = await sb
       .from("sessions")
       .insert({
         season_id,
         start_at,
+        end_at,
         location,
         capacity,
         tikkie_url: normalizedTikkie,

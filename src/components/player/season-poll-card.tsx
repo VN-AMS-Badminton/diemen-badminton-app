@@ -34,6 +34,7 @@ interface Props {
   perSessionCents: number;
   tikkieUrl: string;
   username: string;
+  displayName?: string | null;
   isSubscribed: boolean;
   pollOpen: boolean;
 }
@@ -45,6 +46,7 @@ export function SeasonPollCard({
   perSessionCents,
   tikkieUrl,
   username,
+  displayName,
   isSubscribed,
   pollOpen,
 }: Props) {
@@ -144,6 +146,7 @@ export function SeasonPollCard({
               tikkieUrl={tikkieUrl}
               amountCents={totalCents}
               username={username}
+              displayName={displayName}
               label={`${yearMonth} subscription`}
             />
             {pollOpen && (

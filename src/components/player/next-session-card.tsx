@@ -18,10 +18,12 @@ import type { NextSessionData } from "@/lib/sessions/get-next-session";
 export function NextSessionCard({
   data,
   username,
+  displayName,
   waitlist,
 }: {
   data: NextSessionData | null;
   username: string;
+  displayName?: string | null;
   waitlist?: { position: number; total: number } | null;
 }) {
   if (!data) {
@@ -111,6 +113,7 @@ export function NextSessionCard({
                 }
                 amountCents={season.drop_in_fee_per_session_cents}
                 username={username}
+                displayName={displayName}
                 label="Drop-in payment"
                 attendanceId={attendance.id}
                 status={attendance.payment_status}

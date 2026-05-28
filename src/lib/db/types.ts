@@ -39,10 +39,17 @@ export interface SeasonRow {
   tikkie_url_override: string | null;
   // Default venue hint used by the session batch creator.
   location: string | null;
-  // Default schedule used to pre-populate the batch creator.
-  // weekday: 0=Sunday … 6=Saturday. start_time is HH:MM (24h).
+  // Default schedule used to pre-populate the batch creator and drive
+  // auto-generation on season creation. weekday: 0=Sunday … 6=Saturday.
+  // start_time / end_time are HH:MM (24h).
   weekday: number | null;
   start_time: string | null;
+  end_time: string | null;
+  // Season date range. `from_date` and `to_date` drive auto-generation of
+  // child sessions and let a season span multiple calendar months.
+  // `year_month` is kept as a display label derived from `from_date`.
+  from_date: string;
+  to_date: string;
   poll_opens_at: string;
   poll_closes_at: string;
   status: SeasonStatus;
@@ -60,6 +67,8 @@ export interface SessionRow {
   status: SessionStatus;
   // Real start timestamp (UTC). Used for cutoff queries.
   start_at: string;
+  // Real end timestamp. Nullable for legacy rows; new sessions always set it.
+  end_at: string | null;
   // Set when resolve_session_cutoff has run; idempotency marker.
   cutoff_resolved_at: string | null;
   created_at: string;

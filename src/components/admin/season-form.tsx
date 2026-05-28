@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 // Season-create form. Captures price commitment (per-session fees + court
-// count), a default location, and the regular weekly schedule (weekday +
-// start time) the batch session creator uses to pre-populate its inputs.
+// count), a default location, the season's date range (from_date / to_date),
+// and the weekly schedule template (weekday + start_time + end_time) that
+// drives auto-generation of one session per matching weekday in the range.
 const WEEKDAYS: ReadonlyArray<{ value: number; label: string }> = [
   { value: 1, label: "Monday" },
   { value: 2, label: "Tuesday" },
@@ -21,45 +22,58 @@ const WEEKDAYS: ReadonlyArray<{ value: number; label: string }> = [
 
 export function SeasonForm() {
   const router = useRouter();
-  const [yearMonth, setYearMonth] = React.useState("");
+  const [fromDate, setFromDate] = React.useState("");
+  const [toDate, setToDate] = React.useState("");
   const [pollOpens, setPollOpens] = React.useState("");
   const [pollCloses, setPollCloses] = React.useState("");
   const [courts, setCourts] = React.useState(2);
   const [location, setLocation] = React.useState("");
   const [weekday, setWeekday] = React.useState(2); // Tuesday
   const [startTime, setStartTime] = React.useState("19:00");
+  const [endTime, setEndTime] = React.useState("21:30");
   const [subFee, setSubFee] = React.useState(550);
   const [dropFee, setDropFee] = React.useState(700);
   const [tikkie, setTikkie] = React.useState("");
   const [pending, startTransition] = React.useTransition();
   const [error, setError] = React.useState<string | null>(null);
+  const [success, setSuccess] = React.useState<string | null>(null);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     startTransition(async () => {
       const res = await fetch("/api/admin/seasons", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          year_month: yearMonth,
+          from_date: fromDate,
+          to_date: toDate,
           poll_opens_at: new Date(pollOpens).toISOString(),
           poll_closes_at: new Date(pollCloses).toISOString(),
           court_count: courts,
           location,
           weekday,
           start_time: startTime,
+          end_time: endTime,
           subscription_fee_per_session_cents: subFee,
           drop_in_fee_per_session_cents: dropFee,
           tikkie_url_override: tikkie || undefined,
         }),
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError((await res.json().catch(() => ({}))).error ?? "Create failed");
+        setError(data?.error ?? "Create failed");
         return;
       }
       router.refresh();
-      setYearMonth("");
+      setSuccess(
+        `Season created · ${data.sessionsCreated ?? 0} session${
+          data.sessionsCreated === 1 ? "" : "s"
+        } generated`,
+      );
+      setFromDate("");
+      setToDate("");
       setPollOpens("");
       setPollCloses("");
       setLocation("");
@@ -70,23 +84,23 @@ export function SeasonForm() {
     <form onSubmit={submit} className="space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="ym">Year-Month (e.g. 2026-06)</Label>
+          <Label htmlFor="from-date">From date</Label>
           <Input
-            id="ym"
-            value={yearMonth}
-            onChange={(e) => setYearMonth(e.target.value)}
-            placeholder="2026-06"
-            pattern="\d{4}-\d{2}"
+            id="from-date"
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
             required
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="tikkie">Tikkie URL (optional override)</Label>
+          <Label htmlFor="to-date">To date</Label>
           <Input
-            id="tikkie"
-            value={tikkie}
-            onChange={(e) => setTikkie(e.target.value)}
-            placeholder="https://tikkie.me/pay/..."
+            id="to-date"
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            required
           />
         </div>
         <div className="space-y-2">
@@ -121,8 +135,17 @@ export function SeasonForm() {
             required
           />
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="tikkie">Tikkie URL (optional override)</Label>
+          <Input
+            id="tikkie"
+            value={tikkie}
+            onChange={(e) => setTikkie(e.target.value)}
+            placeholder="https://tikkie.me/pay/..."
+          />
+        </div>
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="loc">Default location (hint for session creator)</Label>
+          <Label htmlFor="loc">Default location</Label>
           <Input
             id="loc"
             type="text"
@@ -138,6 +161,7 @@ export function SeasonForm() {
           <Label htmlFor="wd">Weekday</Label>
           <select
             id="wd"
+            aria-label="Weekday"
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             value={weekday}
             onChange={(e) => setWeekday(parseInt(e.target.value, 10))}
@@ -150,15 +174,27 @@ export function SeasonForm() {
             ))}
           </select>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="st">Start time</Label>
-          <Input
-            id="st"
-            type="time"
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-            required
-          />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Label htmlFor="st">Start time</Label>
+            <Input
+              id="st"
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="et">End time</Label>
+            <Input
+              id="et"
+              type="time"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              required
+            />
+          </div>
         </div>
         <div className="space-y-2">
           <Label htmlFor="sf">Subscription fee per session (cents)</Label>
@@ -185,6 +221,7 @@ export function SeasonForm() {
         {pending ? "Creating..." : "Create season"}
       </Button>
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {success && <p className="text-sm font-medium text-success">{success}</p>}
     </form>
   );
 }

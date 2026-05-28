@@ -5,15 +5,22 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAnnounce } from "@/components/ui/live-announcer";
-import { formatDateTime, formatEuros } from "@/lib/format";
+import { formatDateTime, formatEuros, playerLabel } from "@/lib/format";
 import type { PaymentStatus } from "@/lib/db/types";
 
 // Drop-in payment block. Trust-first for subscribers, but drop-ins must tap
 // "I paid" before they can pass their slot. The status prop drives the gate.
+//
+// The "Copy name" button writes `Display Name (username)` to the clipboard
+// when display_name is set, otherwise just the username — this lets the admin
+// match the Tikkie payer against either field.
 interface Props {
   tikkieUrl: string;
   amountCents: number;
   username: string;
+  // Optional. When present, the copied clipboard payload becomes
+  // "display_name (username)".
+  displayName?: string | null;
   label: string;
   // Optional self-confirm gate. When attendanceId + status are provided and
   // status === 'unpaid', the "I paid" button is shown.
@@ -28,6 +35,7 @@ export function PaymentBlock({
   tikkieUrl,
   amountCents,
   username,
+  displayName,
   label,
   attendanceId,
   status,
@@ -44,10 +52,12 @@ export function PaymentBlock({
   const isUnpaid = effective === "unpaid";
   const canSelfConfirm = isUnpaid && !!attendanceId;
 
-  function copyUsername() {
+  const copyPayload = playerLabel({ username, display_name: displayName });
+
+  function copyName() {
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(username);
-      announce("Username copied");
+      navigator.clipboard.writeText(copyPayload);
+      announce("Name copied");
     }
   }
 
@@ -83,7 +93,7 @@ export function PaymentBlock({
       </div>
       <p className="text-sm">
         Pay <strong>{formatEuros(amountCents)}</strong> via Tikkie and put
-        your username (<strong>{username}</strong>) in the description so the
+        your name (<strong>{copyPayload}</strong>) in the description so the
         admin can match it.
       </p>
       {isUnpaid && paymentDueAt && (
@@ -99,8 +109,8 @@ export function PaymentBlock({
             Open Tikkie
           </a>
         </Button>
-        <Button variant="outline" onClick={copyUsername}>
-          Copy username
+        <Button variant="outline" onClick={copyName}>
+          Copy name
         </Button>
         {canSelfConfirm && (
           <Button variant="secondary" onClick={markPaid} disabled={pending}>
@@ -108,6 +118,10 @@ export function PaymentBlock({
           </Button>
         )}
       </div>
+      <p className="text-xs text-muted-foreground">
+        Please make sure that the Tikkie link is paid. If your paid status
+        does not match your payment, the admin can reject your attendance.
+      </p>
     </div>
   );
 }

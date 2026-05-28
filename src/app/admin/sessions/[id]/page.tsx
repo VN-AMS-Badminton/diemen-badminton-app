@@ -12,7 +12,7 @@ import { SessionEditForm } from "@/components/admin/session-edit-form";
 import { RefundSlotButton } from "@/components/admin/refund-slot-button";
 import { resolveCutoffIfDue } from "@/lib/sessions/resolve-cutoff";
 import { resolvePaymentDeadlines } from "@/lib/sessions/resolve-payment-deadlines";
-import { formatDate, formatTime } from "@/lib/format";
+import { formatDate, formatTime, playerLabel } from "@/lib/format";
 import type {
   AttendanceSource,
   PaymentStatus,
@@ -186,7 +186,9 @@ export default async function AdminSessionDetail({ params }: Props) {
                           <div className="truncate font-medium">
                             {isReferralGuest && r.players?.display_name
                               ? r.players.display_name
-                              : r.players?.username}
+                              : r.players
+                                ? playerLabel(r.players)
+                                : ""}
                           </div>
                           {!isReferralGuest && r.players?.whatsapp_number && (
                             <div className="text-xs text-muted-foreground">
@@ -291,7 +293,9 @@ export default async function AdminSessionDetail({ params }: Props) {
                             <div className="font-medium">
                               {isReferralGuest && r.players?.display_name
                                 ? r.players.display_name
-                                : r.players?.username}
+                                : r.players
+                                  ? playerLabel(r.players)
+                                  : ""}
                             </div>
                             {!isReferralGuest && (
                               <div className="text-xs text-muted-foreground">

@@ -15,9 +15,10 @@ interface Props {
   yearMonth: string; // 'YYYY-MM'
   defaultLocation: string | null;
   // Season-level schedule defaults set on season creation. Used to pre-fill
-  // the time input and offer a "Select all {weekday}s" shortcut.
+  // the time inputs and offer a "Select all {weekday}s" shortcut.
   defaultWeekday: number | null;
   defaultStartTime: string | null;
+  defaultEndTime: string | null;
 }
 
 const WEEKDAY_HEADERS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -38,10 +39,12 @@ export function SessionBatchCreateForm({
   defaultLocation,
   defaultWeekday,
   defaultStartTime,
+  defaultEndTime,
 }: Props) {
   const router = useRouter();
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [time, setTime] = React.useState(defaultStartTime ?? "19:00");
+  const [endTime, setEndTime] = React.useState(defaultEndTime ?? "21:30");
   const [location, setLocation] = React.useState(defaultLocation ?? "");
   const [capacity, setCapacity] = React.useState(8);
   const [pending, startTransition] = React.useTransition();
@@ -97,8 +100,12 @@ export function SessionBatchCreateForm({
       setError("Pick at least one day");
       return;
     }
-    if (!/^\d{2}:\d{2}$/.test(time)) {
+    if (!/^\d{2}:\d{2}$/.test(time) || !/^\d{2}:\d{2}$/.test(endTime)) {
       setError("Time must be HH:MM");
+      return;
+    }
+    if (endTime <= time) {
+      setError("End time must be after start time");
       return;
     }
 
@@ -111,6 +118,7 @@ export function SessionBatchCreateForm({
           season_id: seasonId,
           dates,
           time,
+          end_time: endTime,
           location,
           capacity,
         }),
@@ -181,7 +189,7 @@ export function SessionBatchCreateForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
         <div className="space-y-2">
           <Label htmlFor="bsc-time">Start time</Label>
           <Input
@@ -189,6 +197,16 @@ export function SessionBatchCreateForm({
             type="time"
             value={time}
             onChange={(e) => setTime(e.target.value)}
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="bsc-end">End time</Label>
+          <Input
+            id="bsc-end"
+            type="time"
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
             required
           />
         </div>

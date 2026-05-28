@@ -50,3 +50,14 @@ export function formatEuros(cents: number): string {
     currency: "EUR",
   }).format(cents / 100);
 }
+
+// Render a player as "Display Name (username)" when display_name is present,
+// otherwise just the username. Admin views use this so they can match a
+// Tikkie payment against either field.
+export function playerLabel(p: {
+  username: string;
+  display_name?: string | null;
+}): string {
+  const dn = p.display_name?.trim();
+  return dn ? `${dn} (${p.username})` : p.username;
+}

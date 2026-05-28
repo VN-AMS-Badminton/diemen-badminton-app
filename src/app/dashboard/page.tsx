@@ -105,6 +105,7 @@ export default async function DashboardPage() {
           perSessionCents={poll.subscription_fee_per_session_cents}
           tikkieUrl={tikkieUrl}
           username={player.username}
+          displayName={player.display_name}
           isSubscribed={isSubscribed}
           pollOpen={pollOpen}
         />
@@ -113,6 +114,7 @@ export default async function DashboardPage() {
       <NextSessionCard
         data={next}
         username={player.username}
+        displayName={player.display_name}
         waitlist={
           next ? await getWaitlistPosition(next.session.id, session.sub) : null
         }

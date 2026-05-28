@@ -8,7 +8,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SessionBatchCreateForm } from "@/components/admin/session-batch-create-form";
 import { SessionDeleteButton } from "@/components/admin/session-delete-button";
 import { CloseSeasonButton } from "@/components/admin/close-season-button";
-import { formatDate, formatDateTime, formatTime } from "@/lib/format";
+import { SeasonEditForm } from "@/components/admin/season-edit-form";
+import { listSeasonSubscribers } from "@/lib/seasons/list-season-subscribers";
+import { formatDate, formatDateTime, formatTime, playerLabel } from "@/lib/format";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -41,30 +43,9 @@ export default async function SeasonDetailPage({ params }: Props) {
   const sessionRows = (sessions ?? []) as unknown as SessionWithCount[];
 
   // Subscribers = distinct players with at least one subscription attendance
-  // row across this season's sessions.
-  const sessionIds = sessionRows.map((s) => s.id);
-  type SubscriberRow = {
-    player_id: string;
-    created_at: string;
-    players: { username: string; whatsapp_number: string | null } | null;
-  };
-  let subscriberRows: SubscriberRow[] = [];
-  if (sessionIds.length > 0) {
-    const { data } = await sb
-      .from("attendance")
-      .select(
-        "player_id, created_at, players:player_id(username, whatsapp_number)",
-      )
-      .eq("source", "subscription")
-      .in("session_id", sessionIds)
-      .order("created_at");
-    const seenPlayers = new Set<string>();
-    subscriberRows = ((data ?? []) as unknown as SubscriberRow[]).filter((r) => {
-      if (seenPlayers.has(r.player_id)) return false;
-      seenPlayers.add(r.player_id);
-      return true;
-    });
-  }
+  // row across this season's sessions. Aggregated paid/flagged/unpaid counts
+  // power the "4/5 paid" badge below.
+  const subscribers = await listSeasonSubscribers(sb, id);
 
   const isPoll = season.status === "poll";
 
@@ -94,33 +75,81 @@ export default async function SeasonDetailPage({ params }: Props) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Subscribers ({subscriberRows.length})</CardTitle>
+          <CardTitle>Edit season</CardTitle>
         </CardHeader>
         <CardContent>
-          {subscriberRows.length === 0 ? (
+          <SeasonEditForm
+            season={{
+              id: season.id,
+              from_date: season.from_date,
+              to_date: season.to_date,
+              poll_opens_at: season.poll_opens_at,
+              poll_closes_at: season.poll_closes_at,
+              court_count: season.court_count,
+              location: season.location ?? "",
+              weekday: season.weekday,
+              start_time: season.start_time,
+              end_time: season.end_time,
+              subscription_fee_per_session_cents:
+                season.subscription_fee_per_session_cents,
+              drop_in_fee_per_session_cents:
+                season.drop_in_fee_per_session_cents,
+              tikkie_url_override: season.tikkie_url_override,
+              status: season.status as "poll" | "closed",
+            }}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Subscribers ({subscribers.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {subscribers.length === 0 ? (
             <EmptyState title="No subscribers yet" />
           ) : (
             <Table>
               <THead>
                 <TR>
                   <TH>Player</TH>
+                  <TH>Payment</TH>
                   <TH>When</TH>
                 </TR>
               </THead>
               <TBody>
-                {subscriberRows.map((s) => (
-                  <TR key={s.player_id}>
-                    <TD className="font-medium">
-                      {s.players?.username}
-                      {s.players?.whatsapp_number && (
-                        <div className="text-xs text-muted-foreground">
-                          {s.players.whatsapp_number}
-                        </div>
-                      )}
-                    </TD>
-                    <TD>{formatDateTime(s.created_at)}</TD>
-                  </TR>
-                ))}
+                {subscribers.map((s) => {
+                  const fullyPaid =
+                    s.flaggedCount === 0 && s.unpaidCount === 0;
+                  return (
+                    <TR key={s.player_id}>
+                      <TD className="font-medium">
+                        {playerLabel(s)}
+                        {s.whatsapp_number && (
+                          <div className="text-xs text-muted-foreground">
+                            {s.whatsapp_number}
+                          </div>
+                        )}
+                      </TD>
+                      <TD>
+                        <Badge variant={fullyPaid ? "success" : "warning"}>
+                          {s.paidCount}/{s.totalSessions} paid
+                        </Badge>
+                        {s.flaggedCount > 0 && (
+                          <span className="ml-2 text-xs text-destructive">
+                            {s.flaggedCount} flagged
+                          </span>
+                        )}
+                        {s.unpaidCount > 0 && (
+                          <span className="ml-2 text-xs text-warning-foreground">
+                            {s.unpaidCount} unpaid
+                          </span>
+                        )}
+                      </TD>
+                      <TD>{formatDateTime(s.firstSubscribedAt)}</TD>
+                    </TR>
+                  );
+                })}
               </TBody>
             </Table>
           )}
@@ -200,6 +229,7 @@ export default async function SeasonDetailPage({ params }: Props) {
               defaultLocation={season.location}
               defaultWeekday={season.weekday}
               defaultStartTime={season.start_time}
+              defaultEndTime={season.end_time}
             />
           </CardContent>
         </Card>
