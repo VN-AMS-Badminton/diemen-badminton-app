@@ -67,7 +67,9 @@ export async function POST(req: Request) {
   }
 
   if (action === "opt_in") {
-    if (!existing || existing.source !== "subscription")
+    // Only opted_out subscription rows can be re-opted-in.
+    // cancelled means the slot was permanently passed — cannot reclaim.
+    if (!existing || existing.source !== "subscription" || existing.rsvp_status !== "opted_out")
       return NextResponse.json({ error: "Not a subscriber slot" }, { status: 400 });
     // Capacity check: only re-opt-in if slot still free.
     const { count } = await sb
@@ -87,6 +89,10 @@ export async function POST(req: Request) {
   }
 
   if (action === "drop_in_rsvp") {
+    // Block re-RSVP if player already passed their slot to someone else.
+    if (existing?.rsvp_status === "passed")
+      return NextResponse.json({ error: "You have already passed this slot" }, { status: 400 });
+
     // Capacity check — only non-bumped 'in' rows count.
     const { count } = await sb
       .from("attendance")

@@ -50,7 +50,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className="min-h-dvh font-sans antialiased">
+      <body className="min-h-dvh font-sans antialiased" suppressHydrationWarning>
         <LiveAnnouncer>{children}</LiveAnnouncer>
       </body>
     </html>

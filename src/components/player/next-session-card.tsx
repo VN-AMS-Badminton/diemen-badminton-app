@@ -78,26 +78,61 @@ export function NextSessionCard({
           </>
         )}
 
-        {/* State 2: Subscriber, OPTED OUT */}
-        {subscriberSlot && attendance?.rsvp_status === "opted_out" && (
+        {/* State 2a: Subscriber, passed slot to another player — permanent, no reclaim */}
+        {attendance?.rsvp_status === "passed" && (
           <>
             <div className="flex items-center justify-between gap-2">
-              <Badge variant="warning">Opted out</Badge>
+              <Badge variant="secondary">Slot passed</Badge>
               <span className="text-sm font-medium text-muted-foreground tabular-nums">
                 {confirmedInCount}/{session.capacity} confirmed
               </span>
             </div>
-            <RsvpAction
-              sessionId={session.id}
-              action="opt_in"
-              label="I can make it again"
-              variant="default"
-            />
+            <p className="text-xs text-muted-foreground">
+              You&apos;ve permanently passed your slot for this session. It
+              cannot be reclaimed.
+            </p>
           </>
         )}
 
-        {/* State 3: Non-subscriber, drop-in already in */}
+        {/* State 2b: Subscriber, OPTED OUT (self, reversible) */}
+        {subscriberSlot &&
+          attendance?.rsvp_status === "opted_out" && (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <Badge variant="warning">Opted out</Badge>
+                <span className="text-sm font-medium text-muted-foreground tabular-nums">
+                  {confirmedInCount}/{session.capacity} confirmed
+                </span>
+              </div>
+              <RsvpAction
+                sessionId={session.id}
+                action="opt_in"
+                label="I can make it again"
+                variant="default"
+              />
+            </>
+          )}
+
+        {/* State 3: Passed slot — no payment needed (slot was purchased directly) */}
+        {attendance?.source === "passed" && attendance.rsvp_status === "in" && (
+          <>
+            <div className="flex items-center justify-between gap-2">
+              <Badge variant="success">You&apos;re in · passed slot</Badge>
+              <span className="text-sm font-medium text-muted-foreground tabular-nums">
+                {confirmedInCount}/{session.capacity} confirmed
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Your spot was passed to you directly. Payment was settled outside
+              the app.
+            </p>
+            <PassSlotDialog sessionId={session.id} />
+          </>
+        )}
+
+        {/* State 4: Non-subscriber, drop-in already in */}
         {!subscriberSlot &&
+          attendance?.source !== "passed" &&
           attendance &&
           attendance.rsvp_status === "in" && (
             <>
@@ -136,7 +171,7 @@ export function NextSessionCard({
             </>
           )}
 
-        {/* State 4: Non-subscriber, available (or previously cancelled drop-in) */}
+        {/* State 5: Non-subscriber, available (or previously cancelled drop-in) */}
         {!isSeasonSubscriber &&
           (!attendance || attendance.rsvp_status === "cancelled") &&
           remaining > 0 && (
@@ -156,7 +191,7 @@ export function NextSessionCard({
             </>
           )}
 
-        {/* State 5: Non-subscriber, full — offer waitlist */}
+        {/* State 6: Non-subscriber, full — offer waitlist */}
         {!isSeasonSubscriber &&
           (!attendance || attendance.rsvp_status === "cancelled") &&
           remaining === 0 && (
@@ -174,7 +209,7 @@ export function NextSessionCard({
             </>
           )}
 
-        {/* State 6: Waitlisted */}
+        {/* State 7: Waitlisted */}
         {isWaitlisted && (
           <>
             <div className="flex items-center justify-between gap-2">

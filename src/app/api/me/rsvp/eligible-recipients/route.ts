@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
   const { data: sess } = await sb
     .from("sessions")
-    .select("season_id, status, date")
+    .select("season_id, status")
     .eq("id", sessionId)
     .maybeSingle();
   if (!sess)
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
     .eq("status", "active");
 
   if (excludeIds.length > 0) {
-    query = query.not("id", "in", `(${excludeIds.join(",")})`);
+    query = query.not("id", "in", `(${excludeIds.map((id) => `"${id}"`).join(",")})`);
   }
 
   const { data: players } = await query.order("display_name").order("username");

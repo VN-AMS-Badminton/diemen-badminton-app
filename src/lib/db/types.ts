@@ -7,7 +7,7 @@ export type PlayerStatus = "pending" | "active" | "blocked";
 export type SeasonStatus = "poll" | "closed";
 export type SessionStatus = "scheduled" | "done" | "cancelled";
 export type AttendanceSource = "subscription" | "drop_in" | "passed" | "referral";
-export type RsvpStatus = "in" | "opted_out" | "cancelled" | "waitlisted";
+export type RsvpStatus = "in" | "opted_out" | "cancelled" | "waitlisted" | "passed";
 export type PaymentStatus = "assumed_paid" | "flagged" | "unpaid";
 
 export interface PlayerRow {
