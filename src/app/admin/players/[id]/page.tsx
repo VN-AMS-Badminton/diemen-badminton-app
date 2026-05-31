@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { PlayerDetail } from "@/components/admin/player-detail";
-import { ResetTrialButton } from "@/components/admin/reset-trial-button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/format";
@@ -57,13 +56,9 @@ export default async function PlayerDetailPage({ params }: Props) {
               >
                 {referrer.display_name || referrer.username}
               </Link>
-              {player.free_trial_used
-                ? " · free trial used"
-                : " · free trial unused"}
+              {" · "}
+              {player.free_trial_used ? "free trial used" : "free trial unused"}
             </span>
-            {player.free_trial_used && (
-              <ResetTrialButton playerId={player.id} />
-            )}
           </div>
         )}
       </div>

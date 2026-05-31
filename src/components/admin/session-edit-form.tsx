@@ -27,8 +27,11 @@ interface Props {
     start_at: string;
     location: string;
     capacity: number;
+    trial_quota: number;
     status: SessionStatus;
   };
+  /** Current count of referral guests already invited — sets the minimum for trial_quota. */
+  trialUsed: number;
 }
 
 function localDateStr(startAt: string) {
@@ -42,12 +45,13 @@ function localTimeStr(startAt: string) {
   });
 }
 
-export function SessionEditForm({ session }: Props) {
+export function SessionEditForm({ session, trialUsed }: Props) {
   const router = useRouter();
   const [date, setDate] = React.useState(() => localDateStr(session.start_at));
   const [time, setTime] = React.useState(() => localTimeStr(session.start_at));
   const [location, setLocation] = React.useState(session.location);
   const [capacity, setCapacity] = React.useState(session.capacity);
+  const [trialQuota, setTrialQuota] = React.useState(session.trial_quota);
   const [status, setStatus] = React.useState<SessionStatus>(session.status);
   const [pending, startTransition] = React.useTransition();
   const [error, setError] = React.useState<string | null>(null);
@@ -78,6 +82,7 @@ export function SessionEditForm({ session }: Props) {
           time,
           location,
           capacity,
+          trial_quota: trialQuota,
           status,
         }),
       });
@@ -138,6 +143,23 @@ export function SessionEditForm({ session }: Props) {
             onChange={(e) => setCapacity(parseInt(e.target.value || "1", 10))}
             required
           />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="se-trial">Trial slots</Label>
+          <Input
+            id="se-trial"
+            type="number"
+            min={trialUsed}
+            max={50}
+            value={trialQuota}
+            onChange={(e) => setTrialQuota(parseInt(e.target.value || "0", 10))}
+            required
+          />
+          {trialUsed > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Min {trialUsed} — {trialUsed} guest{trialUsed !== 1 ? "s" : ""} already invited
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="se-status">Status</Label>

@@ -73,6 +73,18 @@ export function PlayerDetail({ player }: { player: Player }) {
     });
   }
 
+  function deleteAccount() {
+    setError(null);
+    startTransition(async () => {
+      const res = await fetch(`/api/admin/players/${player.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        setError((await res.json().catch(() => ({}))).error ?? "Delete failed");
+        return;
+      }
+      router.push("/admin/players");
+    });
+  }
+
   function setStatus(status: "active" | "blocked") {
     setError(null);
     startTransition(async () => {
@@ -193,6 +205,37 @@ export function PlayerDetail({ player }: { player: Player }) {
             Unblock
           </Button>
         )}
+      </section>
+
+      <section className="space-y-3 rounded-md border border-destructive/40 p-4">
+        <h2 className="text-lg font-semibold text-destructive">Danger zone</h2>
+        <p className="text-sm text-muted-foreground">
+          Permanently deletes the account and all attendance history. This cannot be undone.
+        </p>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" disabled={pending}>Delete account</Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete {player.username}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This permanently removes the account and all their attendance records.
+                It cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={deleteAccount}
+                disabled={pending}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete permanently
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </section>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
