@@ -97,12 +97,23 @@ export async function passSlot({
       .eq("source", "subscription")
       .in("session_id", seasonSessionIds);
 
-    if ((subCount ?? 0) > 0)
-      return {
-        ok: false,
-        error: "Recipient already has a subscription this season",
-        status: 400,
-      };
+    if ((subCount ?? 0) > 0) {
+      // A subscriber who already passed their slot for this session has given
+      // it up — allow them to receive it back. Check their row for this session.
+      const { data: receiverThisSession } = await sb
+        .from("attendance")
+        .select("rsvp_status")
+        .eq("session_id", sessionId)
+        .eq("player_id", toPlayerId)
+        .maybeSingle();
+
+      if (receiverThisSession?.rsvp_status !== "passed")
+        return {
+          ok: false,
+          error: "Recipient already has a subscription this season",
+          status: 400,
+        };
+    }
   }
 
   const { data: receiverRow } = await sb
@@ -125,7 +136,11 @@ export async function passSlot({
   if (receiverRow) {
     const { error } = await sb
       .from("attendance")
-      .update({ source: "passed", rsvp_status: "in", payment_status: "assumed_paid" })
+      .update({
+        source: "passed",
+        rsvp_status: "in",
+        payment_status: "assumed_paid",
+      })
       .eq("id", receiverRow.id);
     if (error) return { ok: false, error: "Could not pass slot", status: 500 };
   } else {

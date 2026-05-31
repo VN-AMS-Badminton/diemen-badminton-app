@@ -74,7 +74,13 @@ export default async function HistoryPage() {
                     )}
                   </TD>
                   <TD className="text-muted-foreground">
-                    {r.source === "subscription" ? "Subscription" : "Drop-in"}
+                    {r.source === "subscription"
+                      ? "Subscription"
+                      : r.source === "passed"
+                        ? "Passed slot"
+                        : r.source === "referral"
+                          ? "Referral guest"
+                          : "Drop-in"}
                   </TD>
                   <TD>
                     <Badge

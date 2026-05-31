@@ -36,25 +36,41 @@ export async function GET(req: NextRequest) {
     .eq("season_id", sess.season_id);
   const seasonSessionIds = (seasonSessions ?? []).map((s) => s.id);
 
-  const [{ data: subAtt }, { data: inRecords }] = await Promise.all([
-    seasonSessionIds.length > 0
-      ? sb
-          .from("attendance")
-          .select("player_id")
-          .eq("source", "subscription")
-          .in("session_id", seasonSessionIds)
-      : Promise.resolve({ data: [] as { player_id: string }[] }),
-    sb
-      .from("attendance")
-      .select("player_id")
-      .eq("session_id", sessionId)
-      .eq("rsvp_status", "in"),
-  ]);
+  const [{ data: subAtt }, { data: inRecords }, { data: passedRecords }] =
+    await Promise.all([
+      seasonSessionIds.length > 0
+        ? sb
+            .from("attendance")
+            .select("player_id")
+            .eq("source", "subscription")
+            .in("session_id", seasonSessionIds)
+        : Promise.resolve({ data: [] as { player_id: string }[] }),
+      sb
+        .from("attendance")
+        .select("player_id")
+        .eq("session_id", sessionId)
+        .eq("rsvp_status", "in"),
+      // Players who already passed their slot for this session — they gave it
+      // up voluntarily and are eligible to receive a slot back even if they're
+      // subscribers for the season.
+      sb
+        .from("attendance")
+        .select("player_id")
+        .eq("session_id", sessionId)
+        .eq("rsvp_status", "passed"),
+    ]);
+
+  // Subscribers who have already passed their slot for this session should
+  // not be excluded — they no longer hold it.
+  const passedIds = new Set((passedRecords ?? []).map((r) => r.player_id));
+  const subscriberIds = (subAtt ?? [])
+    .map((s) => s.player_id)
+    .filter((id) => !passedIds.has(id));
 
   const excludeIds = [
     ...new Set([
       session.sub,
-      ...(subAtt ?? []).map((s) => s.player_id),
+      ...subscriberIds,
       ...(inRecords ?? []).map((r) => r.player_id),
     ]),
   ];
@@ -65,7 +81,11 @@ export async function GET(req: NextRequest) {
     .eq("status", "active");
 
   if (excludeIds.length > 0) {
-    query = query.not("id", "in", `(${excludeIds.map((id) => `"${id}"`).join(",")})`);
+    query = query.not(
+      "id",
+      "in",
+      `(${excludeIds.map((id) => `"${id}"`).join(",")})`,
+    );
   }
 
   const { data: players } = await query.order("display_name").order("username");
