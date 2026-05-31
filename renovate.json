@@ -1,0 +1,34 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "schedule": ["before 6am on Monday"],
+  "timezone": "UTC",
+  "binarySource": "install",
+  "osvVulnerabilityAlerts": true,
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "Dependency Dashboard",
+  "automerge": false,
+  "labels": ["dependencies"],
+  "vulnerabilityAlerts": {
+    "labels": ["security", "dependencies"]
+  },
+  "packageRules": [
+    {
+      "description": "Label patch updates",
+      "matchUpdateTypes": ["patch"],
+      "labels": ["dependencies", "patch"]
+    },
+    {
+      "description": "Label and group minor devDependency updates",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor"],
+      "groupName": "devDependencies (minor)",
+      "labels": ["dependencies", "minor"]
+    },
+    {
+      "description": "Label major updates for manual review",
+      "matchUpdateTypes": ["major"],
+      "labels": ["dependencies", "breaking-change"]
+    }
+  ]
+}
