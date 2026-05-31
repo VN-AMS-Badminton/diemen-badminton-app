@@ -28,9 +28,9 @@ export function SeasonForm() {
   const [pollCloses, setPollCloses] = React.useState("");
   const [courts, setCourts] = React.useState(2);
   const [location, setLocation] = React.useState("");
-  const [weekday, setWeekday] = React.useState(2); // Tuesday
-  const [startTime, setStartTime] = React.useState("19:00");
-  const [endTime, setEndTime] = React.useState("21:30");
+  const [weekday, setWeekday] = React.useState(6); // Saturday — club's weekly slot
+  const [startTime, setStartTime] = React.useState("10:30");
+  const [endTime, setEndTime] = React.useState("13:00");
   const [subFee, setSubFee] = React.useState(550);
   const [dropFee, setDropFee] = React.useState(700);
   const [tikkie, setTikkie] = React.useState("");
