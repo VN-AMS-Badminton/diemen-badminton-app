@@ -4,6 +4,17 @@
   "name": "diemen-badminton-app",
   "compatibility_date": "2026-06-05",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  // Production deploys from the main branch publish to this custom domain.
+  // Replace domain.com with your real production domain.
+  "routes": [
+    {
+      "pattern": "vn-ams-badminton.com",
+      "custom_domain": true,
+    },
+  ],
+  // Non-production branch builds use `wrangler versions upload`.
+  // Cloudflare exposes those versions through preview URLs, not custom domains.
+  "preview_urls": true,
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS",
