@@ -4,16 +4,18 @@
   "name": "diemen-badminton-app",
   "compatibility_date": "2026-06-05",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
-  // Production deploys from the main branch publish to this custom domain.
-  // Replace domain.com with your real production domain.
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true,
+    },
+  },
   "routes": [
     {
       "pattern": "vn-ams-badminton.com",
       "custom_domain": true,
     },
   ],
-  // Non-production branch builds use `wrangler versions upload`.
-  // Cloudflare exposes those versions through preview URLs, not custom domains.
   "preview_urls": true,
   "assets": {
     "directory": ".open-next/assets",
@@ -21,14 +23,12 @@
   },
   "services": [
     {
-      // Self-reference service binding, the service name must match the worker name
       // see https://opennext.js.org/cloudflare/caching
       "binding": "WORKER_SELF_REFERENCE",
       "service": "diemen-badminton-app",
     },
   ],
   "images": {
-    // Enable image optimization
     // see https://opennext.js.org/cloudflare/howtos/image
     "binding": "IMAGES",
   },
