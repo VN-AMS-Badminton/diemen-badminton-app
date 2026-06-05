@@ -19,6 +19,9 @@
 dist/
 bin/
 
+# open-next
+/.open-next/
+
 # production
 /build
 
