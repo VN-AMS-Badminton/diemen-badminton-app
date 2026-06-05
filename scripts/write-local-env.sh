@@ -37,16 +37,20 @@ if [[ -f "$ENV_FILE" ]]; then
   TIKKIE_URL=$(grep -E '^TIKKIE_DEFAULT_URL=' "$ENV_FILE" | cut -d= -f2- || true)
 fi
 
-cat > "$ENV_FILE" <<EOF
+cat >"$ENV_FILE" <<EOF
 # Local development environment — points to local Supabase stack.
 # Regenerate with: npm run db:env
-NEXT_PUBLIC_SUPABASE_URL=${API_URL}
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}
-SUPABASE_SECRET_KEY=${SERVICE_ROLE_KEY}
+NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+SUPABASE_SECRET_KEY=${SUPABASE_SECRET_KEY}
 
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 SESSION_SECRET=${SESSION_SECRET}
 TIKKIE_DEFAULT_URL=${TIKKIE_URL:-https://tikkie.me/pay/example}
+
+next_public_vapid_public_key=${next_public_vapid_public_key}
+VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+VAPID_SUBJECT=${VAPID_SUBJECT}
 EOF
 
 echo "Wrote $ENV_FILE pointing to ${API_URL}"
