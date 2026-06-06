@@ -12,6 +12,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "hash-pin": "tsx scripts/hash-pin.ts",
+    "bunq:setup": "tsx scripts/bunq-setup.ts",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:status": "supabase status",
