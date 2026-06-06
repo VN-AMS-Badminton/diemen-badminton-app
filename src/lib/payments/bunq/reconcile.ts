@@ -143,12 +143,20 @@ export async function reconcileBunqPayment(
   if (outcome === "confirmed" || outcome === "unflagged")
     patch.payment_status = "assumed_paid";
 
-  const { data: after } = await sb
+  const { data: after, error: updateError } = await sb
     .from("attendance")
     .update(patch)
     .eq("id", row.id)
     .select()
     .maybeSingle();
+
+  // Partial unique index on bunq_payment_id (migration 0024) turns a racing
+  // duplicate callback into a 23505 violation — treat as already-processed.
+  if (updateError) {
+    if ((updateError as { code?: string }).code === "23505")
+      return { outcome: "duplicate", attendanceId: row.id };
+    throw new Error(`reconcile update failed: ${updateError.message}`);
+  }
 
   await writeAudit(
     null,

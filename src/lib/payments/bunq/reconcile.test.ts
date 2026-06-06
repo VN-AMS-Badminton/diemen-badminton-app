@@ -170,6 +170,25 @@ describe("reconcileBunqPayment", () => {
     expect(cap.inserts[0].payload).toMatchObject({ action: "bunq_match_unclear" });
   });
 
+  it("treats a unique-violation (racing duplicate) as duplicate", async () => {
+    const cap = emptyCaptures();
+    const sb = createSb(
+      {
+        attendance: [
+          { data: null },
+          ATTENDEE("unpaid"),
+          { error: { code: "23505", message: "duplicate key" } },
+        ],
+        sessions: [SESSION_ROW, COUNT_3],
+      },
+      cap,
+    );
+    const res = await reconcileBunqPayment(sb, PAYMENT);
+    expect(res.outcome).toBe("duplicate");
+    // No audit row written when the write lost the race.
+    expect(cap.inserts).toHaveLength(0);
+  });
+
   it("returns no_session when there is no upcoming session", async () => {
     const cap = emptyCaptures();
     const sb = createSb({ attendance: [{ data: null }], sessions: [{ data: null }] }, cap);

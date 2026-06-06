@@ -49,6 +49,16 @@ describe("matchPayment — who", () => {
     expect(r.player).toBeNull();
   });
 
+  it("ignores too-short names (<3 chars) to avoid mis-attribution", () => {
+    const r = matchPayment({
+      description: "payment bo",
+      amountCents: 750,
+      players: [{ id: "x", username: "bo", display_name: null }],
+      ...FEES,
+    });
+    expect(r.confidence).toBe("none");
+  });
+
   it("ambiguous (>1 player named) → confidence none", () => {
     const r = matchPayment({
       description: "alice and bob splitting",
