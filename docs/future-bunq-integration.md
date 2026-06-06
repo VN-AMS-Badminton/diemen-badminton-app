@@ -1,8 +1,41 @@
-# Future: Bunq Webhook Auto-Reconciliation
+# Bunq Webhook Auto-Reconciliation
 
-**Status:** deferred. v1 ships with honor-system + admin spot-check. This doc captures the design so a future session can implement without re-research.
+**Status:** IMPLEMENTED (2026-06-07), behind `PAYMENT_PROVIDER=bunq`. Tikkie
+remains available for rollback. Sandbox verification + production cutover are
+operator steps — see "Implementation status" below and the rollout section in
+`docs/deployment-guide.md`.
 
-**Last reviewed:** 2026-05-13
+**Last reviewed:** 2026-06-07
+
+## Implementation status
+
+What shipped (see code):
+- Provider flag + provider-aware payment link: `src/lib/payments/provider.ts`,
+  `src/lib/sessions/get-payment-context.ts`.
+- bunq API client + signing (one-off setup only): `src/lib/payments/bunq/{client,sign}.ts`,
+  `scripts/bunq-setup.ts` (`pnpm bunq:setup`).
+- Webhook receiver (Node runtime): `src/app/api/webhooks/bunq/[hook]/route.ts`
+  — URL-secret + `X-Bunq-Server-Signature` (RSA-SHA256) auth.
+- Pure logic + reconcile: `src/lib/payments/bunq/{verify-signature,parse-callback,match-payment,reconcile}.ts`
+  with vitest coverage (`src/lib/payments/bunq/*.test.ts`).
+- Reconciliation UI badge: `src/app/admin/reconciliation/page.tsx`.
+
+Design changes vs the original sketch below:
+- **Static bunq.me link**, not runtime `RequestInquiry` — KISS at this scale.
+- **Runtime never authenticates with bunq.** The handshake + callback
+  registration run once, locally, via the setup script; the app only RECEIVES
+  callbacks and verifies them with the stored server public key. This removes
+  the keypair-persistence / static-IP concerns entirely.
+- **Node runtime**, not edge (RSA needs `crypto`). Deploy target is Fly.io.
+- **Trust-first model**: the enum is `assumed_paid | flagged | unpaid` (not the
+  `owed/admin_confirmed` states below). Webhook actions: `unpaid` drop-in →
+  `assumed_paid`; `flagged` → auto-unflag on exact match; `assumed_paid` → attach
+  `bunq_payment_id` proof. Subscription-sized + ambiguous payments → admin queue.
+- **URL-path secret** added alongside signature verification (defense-in-depth).
+
+The original design notes below are kept for context (some details superseded).
+
+---
 
 ## When to Build This
 
