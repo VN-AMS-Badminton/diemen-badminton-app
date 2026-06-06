@@ -40,12 +40,12 @@ export function SessionTikkieUrlForm({
 
   return (
     <form onSubmit={submit} className="space-y-2">
-      <Label htmlFor="tikkie-url">Tikkie payment link for this session</Label>
+      <Label htmlFor="tikkie-url">Payment link for this session</Label>
       <div className="flex gap-2">
         <Input
           id="tikkie-url"
           type="url"
-          placeholder="https://tikkie.me/pay/…"
+          placeholder="https://tikkie.me/pay/… or https://bunq.me/…"
           value={url}
           onChange={(e) => {
             setUrl(e.target.value);
