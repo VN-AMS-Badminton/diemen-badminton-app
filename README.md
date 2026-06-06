@@ -100,5 +100,8 @@ docs/                   # Architecture, deployment, future work
 
 ## Roadmap
 
-- v1 (current): manual Tikkie + honor-system payment tracking
-- Future: Bunq webhook auto-confirmation — see `docs/future-bunq-integration.md`
+- v1: manual Tikkie + honor-system payment tracking
+- v2 (current): bunq payment link + webhook auto-reconciliation, behind the
+  `PAYMENT_PROVIDER` flag (Tikkie retained for rollback) — see
+  `docs/future-bunq-integration.md` and the rollout section of
+  `docs/deployment-guide.md`

@@ -63,8 +63,15 @@ These are injected at runtime, never baked into the image:
 fly secrets set \
   SUPABASE_SERVICE_ROLE_KEY="..." \
   SESSION_SECRET="$(openssl rand -base64 32)" \
-  TIKKIE_DEFAULT_URL="https://tikkie.me/pay/your-link"
+  PAYMENT_PROVIDER="tikkie" \
+  TIKKIE_DEFAULT_URL="https://tikkie.me/pay/your-link" \
+  BUNQ_DEFAULT_URL="https://bunq.me/your-link"
 ```
+
+`PAYMENT_PROVIDER` selects the active provider (`tikkie` | `bunq`). Keep it
+`tikkie` until bunq is verified, then flip — see "bunq payment rollout" below.
+The `BUNQ_WEBHOOK_SECRET` / `BUNQ_SERVER_PUBLIC_KEY` secrets are added during
+that rollout, not at first deploy.
 
 ### 4. First deploy (manual, sets the baseline)
 
@@ -130,6 +137,36 @@ Also update the `NEXT_PUBLIC_APP_URL` GitHub secret so future CI deploys use the
 | Scale up | `fly scale memory 1024` (RAM) or `fly scale vm shared-cpu-2x` |
 | Force always-on | Set `min_machines_running = 1` in `fly.toml`, redeploy |
 | Cost dashboard | `fly orgs show personal` or https://fly.io/dashboard/personal/billing |
+
+## bunq Payment Rollout
+
+bunq auto-reconciliation runs in parallel with Tikkie behind `PAYMENT_PROVIDER`.
+Rollback is a single secret flip. The runtime never opens a bunq session — it
+only RECEIVES callbacks — so the auth handshake happens once, locally.
+
+Sequence (after sandbox verification — see `docs/future-bunq-integration.md`):
+
+1. **Register the production callback (local, one-off):**
+   ```bash
+   BUNQ_API_KEY=<personal-api-key> pnpm bunq:setup --production \
+     --register-callback --webhook-url https://diemen-badminton.fly.dev
+   ```
+   Copy the printed `BUNQ_WEBHOOK_SECRET` and `BUNQ_SERVER_PUBLIC_KEY` (base64).
+2. **Set Fly secrets:**
+   ```bash
+   fly secrets set \
+     BUNQ_WEBHOOK_SECRET="<printed>" \
+     BUNQ_SERVER_PUBLIC_KEY="<printed-base64>" \
+     BUNQ_DEFAULT_URL="https://bunq.me/your-link"
+   ```
+3. **Flip the provider:** `fly secrets set PAYMENT_PROVIDER=bunq` (auto-rollout).
+4. **Smoke test:** make a small real payment with your name in the description →
+   confirm the reconciliation page shows `paid via bunq` + an `audit_log` row.
+5. **Monitor** first 2 weeks; admin keeps the manual spot-check. Then relax cadence.
+
+**Rollback:** `fly secrets set PAYMENT_PROVIDER=tikkie`. Keep the Tikkie link +
+secret valid during the monitoring window. `BUNQ_API_KEY` is NEVER set on Fly —
+it is only used by the local setup script.
 
 ## Cost Notes
 
