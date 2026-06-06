@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { verifyBunqCallback } from "@/lib/payments/bunq/verify-signature";
 import { parseBunqCallback } from "@/lib/payments/bunq/parse-callback";
 import { reconcileBunqPayment } from "@/lib/payments/bunq/reconcile";
+
+/** Constant-time string compare (avoids leaking the secret via timing). */
+function secretsEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ab.length === bb.length && timingSafeEqual(ab, bb);
+}
 
 // bunq MUTATION callback receiver.
 //
@@ -24,7 +32,7 @@ export async function POST(
 ) {
   const { hook } = await params;
   const expected = process.env.BUNQ_WEBHOOK_SECRET;
-  if (!expected || hook !== expected) {
+  if (!expected || !secretsEqual(hook, expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -32,16 +40,30 @@ export async function POST(
   // re-serialize a parsed object.
   const rawBody = await req.text();
 
-  const signatureValid = verifyBunqCallback(
-    rawBody,
-    req.headers.get("X-Bunq-Server-Signature"),
-    process.env.BUNQ_SERVER_PUBLIC_KEY,
-  );
-  // If a server public key is configured we REQUIRE a valid signature. If it is
-  // not configured (e.g. early sandbox before capture), the URL value alone
-  // gates access and we log that we skipped verification.
-  if (process.env.BUNQ_SERVER_PUBLIC_KEY && !signatureValid) {
-    return NextResponse.json({ error: "Bad signature" }, { status: 401 });
+  // Signature gate. If the server public key is configured we REQUIRE a valid
+  // signature. If it is NOT configured: fail closed in production (a missing
+  // key in prod is a misconfiguration, not a reason to drop a security check);
+  // outside production allow URL-secret-only auth for early sandbox testing,
+  // and log loudly that verification was skipped.
+  const serverKey = process.env.BUNQ_SERVER_PUBLIC_KEY;
+  if (serverKey) {
+    const signatureValid = verifyBunqCallback(
+      rawBody,
+      req.headers.get("X-Bunq-Server-Signature"),
+      serverKey,
+    );
+    if (!signatureValid) {
+      return NextResponse.json({ error: "Bad signature" }, { status: 401 });
+    }
+  } else if (process.env.NODE_ENV === "production") {
+    console.error(
+      "[bunq webhook] BUNQ_SERVER_PUBLIC_KEY is not set in production — refusing unverified callback",
+    );
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 401 });
+  } else {
+    console.warn(
+      "[bunq webhook] BUNQ_SERVER_PUBLIC_KEY unset — skipping signature verification (non-production only)",
+    );
   }
 
   let body: unknown;

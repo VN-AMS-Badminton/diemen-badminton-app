@@ -33,16 +33,16 @@ export function normalize(s: string): string {
     .trim();
 }
 
-/** True when any whitespace-delimited token of `name` appears in `haystack`. */
+/** True when the normalized `name` appears in `haystack`. */
 function nameMatches(haystack: string, name: string | null): boolean {
   if (!name) return false;
   const norm = normalize(name);
-  if (!norm) return false;
+  // Require >=3 chars to avoid a 2-char name mis-attributing to one attendee.
+  if (norm.length < 3) return false;
   // Whole normalized name as a substring is the primary signal.
   if (haystack.includes(norm)) return true;
-  // Username is usually a single token; require the full token (>=3 chars) to
-  // avoid matching trivially short fragments.
-  return norm.length >= 3 && new RegExp(`\\b${escapeRegExp(norm)}\\b`).test(haystack);
+  // Otherwise require a whole-word match (handles names with surrounding text).
+  return new RegExp(`\\b${escapeRegExp(norm)}\\b`).test(haystack);
 }
 
 function escapeRegExp(s: string): string {
