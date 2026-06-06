@@ -45,6 +45,9 @@ yarn.lock
 .env*
 !.env.example
 
+# bunq setup credentials (keypair, tokens) — local only, never commit
+.bunq/
+
 # vercel
 .vercel
 
