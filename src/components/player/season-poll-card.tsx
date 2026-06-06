@@ -32,7 +32,8 @@ interface Props {
   yearMonth: string;
   sessions: PollSession[];
   perSessionCents: number;
-  tikkieUrl: string;
+  payUrl: string;
+  providerLabel: string;
   username: string;
   displayName?: string | null;
   isSubscribed: boolean;
@@ -44,7 +45,8 @@ export function SeasonPollCard({
   yearMonth,
   sessions,
   perSessionCents,
-  tikkieUrl,
+  payUrl,
+  providerLabel,
   username,
   displayName,
   isSubscribed,
@@ -96,8 +98,8 @@ export function SeasonPollCard({
           <span className="text-brand tabular-nums">{yearMonth}</span>?
         </CardTitle>
         <CardDescription>
-          Subscribers play every scheduled session — one Tikkie covers the
-          whole month.
+          Subscribers play every scheduled session — one {providerLabel} covers
+          the whole month.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -143,7 +145,8 @@ export function SeasonPollCard({
               {sessionCount === 1 ? "session" : "sessions"}
             </Badge>
             <PaymentBlock
-              tikkieUrl={tikkieUrl}
+              payUrl={payUrl}
+              providerLabel={providerLabel}
               amountCents={totalCents}
               username={username}
               displayName={displayName}

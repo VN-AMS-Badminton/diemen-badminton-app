@@ -35,9 +35,14 @@ NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 SESSION_SECRET=<openssl rand -base64 32>
+PAYMENT_PROVIDER=tikkie
 TIKKIE_DEFAULT_URL=https://tikkie.me/pay/<your-personal-link>
+BUNQ_DEFAULT_URL=https://bunq.me/<your-personal-link>
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
+
+`PAYMENT_PROVIDER` selects the active payment provider (`tikkie` or `bunq`). It
+defaults to `tikkie`; set it to `bunq` to switch players to the bunq.me link.
 
 For push notifications, generate a VAPID keypair and add to `.env.local`:
 
