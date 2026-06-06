@@ -47,7 +47,9 @@ INSERT INTO players (id, username, display_name, whatsapp_number, pin_hash, role
   ('00000000-0000-0000-0000-000000000017', 'rik',     'Rik de Vos',          '+31600000017', '$2a$10$b5dzCUYQaOMNj/V6SK36wO.WlPdX0EloHTmZeuLD2sOa2GyCCdF.a', 'player', 'active', 'ref-rik-0017',     false),
   ('00000000-0000-0000-0000-000000000018', 'fenna',   'Fenna Bos',           '+31600000018', '$2a$10$b5dzCUYQaOMNj/V6SK36wO.WlPdX0EloHTmZeuLD2sOa2GyCCdF.a', 'player', 'active', 'ref-fenna-0018',   false),
   ('00000000-0000-0000-0000-000000000019', 'bas',     'Bas Hofman',          '+31600000019', '$2a$10$b5dzCUYQaOMNj/V6SK36wO.WlPdX0EloHTmZeuLD2sOa2GyCCdF.a', 'player', 'active', 'ref-bas-0019',     false),
-  ('00000000-0000-0000-0000-000000000020', 'eva',     'Eva Willems',         '+31600000020', '$2a$10$b5dzCUYQaOMNj/V6SK36wO.WlPdX0EloHTmZeuLD2sOa2GyCCdF.a', 'player', 'active', 'ref-eva-0020',     false)
+  ('00000000-0000-0000-0000-000000000020', 'eva',     'Eva Willems',         '+31600000020', '$2a$10$b5dzCUYQaOMNj/V6SK36wO.WlPdX0EloHTmZeuLD2sOa2GyCCdF.a', 'player', 'active', 'ref-eva-0020',     false),
+  -- pass-slot test target: active player, no subscription, no attendance
+  ('00000000-0000-0000-0000-000000000021', 'maya',    'Maya Slot',           '+31600000021', '$2a$10$b5dzCUYQaOMNj/V6SK36wO.WlPdX0EloHTmZeuLD2sOa2GyCCdF.a', 'player', 'active', 'ref-maya-0021',    false)
 ON CONFLICT (username) DO NOTHING;
 
 -- ============================================================================
@@ -55,12 +57,15 @@ ON CONFLICT (username) DO NOTHING;
 -- ============================================================================
 
 INSERT INTO seasons (
-  id, year_month, court_count, subscription_fee_per_session_cents, drop_in_fee_per_session_cents,
+  id, year_month, from_date, to_date,
+  court_count, subscription_fee_per_session_cents, drop_in_fee_per_session_cents,
   location,
   poll_opens_at, poll_closes_at, status
 ) VALUES (
   '11111111-1111-1111-1111-000000000001',
   '2026-06',
+  '2026-06-01',
+  '2026-06-30',
   2,
   500,    -- €5.00 / session (subscriber rate)
   700,    -- €7.00 / session (drop-in rate)
@@ -76,29 +81,29 @@ ON CONFLICT (year_month) DO NOTHING;
 -- ============================================================================
 
 INSERT INTO sessions (
-  id, season_id, date, weekday_time, capacity, location, start_at, status
+  id, season_id, capacity, location, start_at, status
 ) VALUES
   ('22222222-2222-2222-2222-000000000001',
    '11111111-1111-1111-1111-000000000001',
-   '2026-06-04', 'Thu 19:00', 16, 'Sporthal Diemen — Court 1+2',
+   16, 'Sporthal Diemen — Court 1+2',
    ('2026-06-04 19:00:00'::timestamp AT TIME ZONE 'Europe/Amsterdam'),
    'scheduled'),
   ('22222222-2222-2222-2222-000000000002',
    '11111111-1111-1111-1111-000000000001',
-   '2026-06-11', 'Thu 19:00', 16, 'Sporthal Diemen — Court 1+2',
+   16, 'Sporthal Diemen — Court 1+2',
    ('2026-06-11 19:00:00'::timestamp AT TIME ZONE 'Europe/Amsterdam'),
    'scheduled'),
   ('22222222-2222-2222-2222-000000000003',
    '11111111-1111-1111-1111-000000000001',
-   '2026-06-18', 'Thu 19:00', 16, 'Sporthal Diemen — Court 1+2',
+   16, 'Sporthal Diemen — Court 1+2',
    ('2026-06-18 19:00:00'::timestamp AT TIME ZONE 'Europe/Amsterdam'),
    'scheduled'),
   ('22222222-2222-2222-2222-000000000004',
    '11111111-1111-1111-1111-000000000001',
-   '2026-06-25', 'Thu 19:00', 16, 'Sporthal Diemen — Court 1+2',
+   16, 'Sporthal Diemen — Court 1+2',
    ('2026-06-25 19:00:00'::timestamp AT TIME ZONE 'Europe/Amsterdam'),
    'scheduled')
-ON CONFLICT (season_id, date) DO NOTHING;
+ON CONFLICT (season_id, (CAST(start_at AT TIME ZONE 'Europe/Amsterdam' AS date))) DO NOTHING;
 
 -- ============================================================================
 -- 4) SUBSCRIPTION ATTENDANCE — 12 of 20 players subscribed for June 2026.

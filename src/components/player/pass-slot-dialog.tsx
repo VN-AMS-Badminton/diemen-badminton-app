@@ -5,17 +5,32 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 type EligiblePlayer = { id: string; username: string; display_name: string };
+
+/** Fuzzy-match: every word in the query must appear somewhere in the haystack. */
+function fuzzyMatch(player: EligiblePlayer, query: string): boolean {
+  if (!query.trim()) return true;
+  const hay = `${player.display_name} ${player.username}`.toLowerCase();
+  return query
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .every((word) => hay.includes(word));
+}
 
 export function PassSlotDialog({ sessionId }: { sessionId: string }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [players, setPlayers] = React.useState<EligiblePlayer[]>([]);
   const [loading, setLoading] = React.useState(false);
+  const [search, setSearch] = React.useState("");
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [selectedName, setSelectedName] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const searchRef = React.useRef<HTMLInputElement>(null);
 
   async function fetchEligiblePlayers() {
     setLoading(true);
@@ -23,8 +38,14 @@ export function PassSlotDialog({ sessionId }: { sessionId: string }) {
       const res = await fetch(
         `/api/me/rsvp/eligible-recipients?sessionId=${sessionId}`,
       );
+      if (!res.ok) {
+        setError("Could not load players. Please try again.");
+        return;
+      }
       const data = await res.json();
       setPlayers(data.players ?? []);
+    } catch {
+      setError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -34,9 +55,19 @@ export function PassSlotDialog({ sessionId }: { sessionId: string }) {
     setOpen(next);
     if (next) {
       setSelectedId(null);
+      setSelectedName(null);
+      setSearch("");
       setError(null);
       fetchEligiblePlayers();
+      // Auto-focus search after the dialog animates in.
+      setTimeout(() => searchRef.current?.focus(), 80);
     }
+  }
+
+  function handleSelect(player: EligiblePlayer) {
+    setSelectedId(player.id);
+    setSelectedName(player.display_name || player.username);
+    setError(null);
   }
 
   async function handleConfirm() {
@@ -51,15 +82,19 @@ export function PassSlotDialog({ sessionId }: { sessionId: string }) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data?.error ?? "Failed to pass slot");
+        setError(data?.error ?? "Failed to pass slot. Please try again.");
         return;
       }
       setOpen(false);
       router.refresh();
+    } catch {
+      setError("Network error. Please try again.");
     } finally {
       setSubmitting(false);
     }
   }
+
+  const filtered = players.filter((p) => fuzzyMatch(p, search));
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={handleOpenChange}>
@@ -75,33 +110,58 @@ export function PassSlotDialog({ sessionId }: { sessionId: string }) {
             Pass your slot
           </DialogPrimitive.Title>
           <DialogPrimitive.Description className="mt-1 text-sm text-muted-foreground">
-            Select a player to take your spot. They pay you directly — not
+            Search for a player to take your spot. They pay you directly — not
             tracked in the app.
           </DialogPrimitive.Description>
 
-          <div className="mt-4 max-h-60 overflow-y-auto rounded-md border">
+          {/* Search input */}
+          <div className="mt-4">
+            <Input
+              ref={searchRef}
+              type="search"
+              placeholder="Search by name or username…"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                // Clear selection if search changes away from chosen player.
+                if (selectedId) {
+                  setSelectedId(null);
+                  setSelectedName(null);
+                }
+              }}
+              disabled={loading}
+              aria-label="Search players"
+            />
+          </div>
+
+          {/* Player list */}
+          <div className="mt-2 max-h-52 overflow-y-auto rounded-md border">
             {loading ? (
               <p className="p-3 text-sm text-muted-foreground">
                 Loading players…
               </p>
-            ) : players.length === 0 ? (
+            ) : filtered.length === 0 ? (
               <p className="p-3 text-sm text-muted-foreground">
-                No eligible players available.
+                {search.trim()
+                  ? `No players match "${search}".`
+                  : "No eligible players available."}
               </p>
             ) : (
-              players.map((p) => (
+              filtered.map((p) => (
                 <button
                   key={p.id}
                   type="button"
-                  onClick={() => setSelectedId(p.id)}
+                  onClick={() => handleSelect(p)}
                   className={cn(
-                    "flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-accent",
+                    "flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-accent transition-colors",
                     selectedId === p.id && "bg-accent font-medium",
                   )}
                 >
-                  <span>{p.display_name || p.username}</span>
+                  <span className="flex-1 truncate">
+                    {p.display_name || p.username}
+                  </span>
                   {p.display_name && (
-                    <span className="text-xs text-muted-foreground">
+                    <span className="shrink-0 text-xs text-muted-foreground">
                       @{p.username}
                     </span>
                   )}
@@ -110,6 +170,15 @@ export function PassSlotDialog({ sessionId }: { sessionId: string }) {
             )}
           </div>
 
+          {/* Confirmation hint */}
+          {selectedName && (
+            <p className="mt-2 text-sm text-foreground">
+              Passing slot to{" "}
+              <strong className="text-brand">{selectedName}</strong>.
+            </p>
+          )}
+
+          {/* Error */}
           {error && (
             <p className="mt-2 text-xs text-destructive" role="alert">
               {error}
