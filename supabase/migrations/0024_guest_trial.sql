@@ -22,3 +22,10 @@ DROP INDEX IF EXISTS players_trial_whatsapp_unique;
 CREATE UNIQUE INDEX players_trial_whatsapp_unique
   ON players (whatsapp_number)
   WHERE free_trial_used = true AND whatsapp_number IS NOT NULL;
+
+-- 3. Partial index for the per-session trial count query ---------------------
+-- Covers: getNextSession (every dashboard load) and inviteGuest (every invite).
+-- Without this, both queries do a heap scan over the session's attendance rows.
+CREATE INDEX IF NOT EXISTS idx_attendance_trial_count
+  ON attendance (session_id)
+  WHERE source = 'referral' AND rsvp_status = 'in';

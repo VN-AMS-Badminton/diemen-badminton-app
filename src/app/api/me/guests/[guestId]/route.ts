@@ -53,8 +53,10 @@ export async function DELETE(
     return NextResponse.json({ error: "Could not revoke referral" }, { status: 500 });
   }
 
-  await writeAudit(session.sub, "revoke_referral", "player", guestId, guest, null);
-  await promoteWaitlist(sessionId);
+  await Promise.all([
+    writeAudit(session.sub, "revoke_referral", "player", guestId, guest, null),
+    promoteWaitlist(sessionId),
+  ]);
 
   return NextResponse.json({ ok: true });
 }

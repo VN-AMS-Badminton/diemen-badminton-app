@@ -71,6 +71,7 @@ function makeSession(overrides: Partial<SessionRow> = {}): SessionRow {
     start_at: futureDate,
     end_at: null,
     cutoff_resolved_at: null,
+    trial_quota: 4,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     ...overrides,
