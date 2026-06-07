@@ -45,6 +45,7 @@ erDiagram
         uuid id PK
         uuid season_id FK
         int capacity
+        int trial_quota
         text tikkie_url
         text location
         session_status status
@@ -135,7 +136,7 @@ erDiagram
 - **`rsvp_status` semantics.** `in` = confirmed; `opted_out` = self opted out this session (reversible); `waitlisted` = waiting for a freed seat (reversible); `cancelled` = generic cancel (drop-in left, left waitlist — reversible); `passed` = permanently gave slot to another player (irreversible).
 - **Subscriptions are attendance rows.** The separate `subscriptions` table was dropped (migration `0017`). A subscriber is simply an `attendance` row with `source = 'subscription'` and an `rsvp_status` of `in`.
 - **Trust-first payments.** `payment_status` defaults to `assumed_paid`; admin only flags anomalies. Drop-ins get a `payment_due_at` deadline; unpaid rows are auto-cancelled by `resolve_session_cutoff`.
-- **Referral system.** Active members have a permanent `referral_code`. A referred guest (`source = 'referral'`) gets one free session (`is_tentative = true`); at cutoff the guest is either locked in (`free_trial_used = true`) or bumped in favour of a waitlisted member.
+- **Referral system.** Active members have a permanent `referral_code`. There are two invite paths: (1) **referral link** — guest follows the member's link, picks a session, gets `is_tentative = true`; at cutoff they are locked in (`free_trial_used = true`) or bumped for a waitlisted member. (2) **in-app invite** — member submits guest name + phone via the dashboard; guest is locked in immediately (`is_tentative = false`, `free_trial_used = true`). Both paths set `source = 'referral'`. Each session has a `trial_quota` (default 4) capping the total in-app trial slots. One free trial per `whatsapp_number` is enforced by a partial unique index (`WHERE free_trial_used = true`).
 - **Cutoff resolver.** `resolve_session_cutoff(uuid)` is an idempotent Postgres RPC called lazily before any attendance read/write. It promotes waitlisted players, bumps tentative referral guests, and sets `cutoff_resolved_at`.
 - **RLS is deny-all.** All tables have RLS enabled but no permissive policies. Only the `service_role` key (used server-side) can read/write. The browser client cannot access any data directly.
 
