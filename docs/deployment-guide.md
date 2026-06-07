@@ -140,33 +140,48 @@ Also update the `NEXT_PUBLIC_APP_URL` GitHub secret so future CI deploys use the
 
 ## bunq Payment Rollout
 
+> **Deploy target:** this app runs on **Cloudflare Workers** (OpenNext) — see
+> `wrangler.jsonc` (custom domain `vn-ams-badminton.com`, `nodejs_compat`). The
+> Fly.io instructions elsewhere in this guide are stale; runtime env for bunq is
+> set as Worker vars/secrets via `wrangler` or the Cloudflare dashboard. The
+> webhook signature check uses Web Crypto so it runs natively on workerd.
+
 bunq auto-reconciliation runs in parallel with Tikkie behind `PAYMENT_PROVIDER`.
-Rollback is a single secret flip. The runtime never opens a bunq session — it
-only RECEIVES callbacks — so the auth handshake happens once, locally.
+Rollback is a single var flip. The runtime never opens a bunq session — it only
+RECEIVES callbacks — so the auth handshake happens once, locally.
 
 Sequence (after sandbox verification — see `docs/future-bunq-integration.md`):
 
-1. **Register the production callback (local, one-off):**
+1. **Deploy this branch** to the target environment and **apply migration 0024**
+   to that environment's Supabase DB. Confirm the route is reachable (not behind
+   the login gate): `curl -i -X POST https://vn-ams-badminton.com/api/webhooks/bunq/bogus -d '{}'`
+   should return **401**, not a `307 → /?next=`.
+2. **Register the production callback (local, one-off):**
    ```bash
    BUNQ_API_KEY=<personal-api-key> pnpm bunq:setup --production \
-     --register-callback --webhook-url https://diemen-badminton.fly.dev
+     --register-callback --webhook-url https://vn-ams-badminton.com
    ```
    Copy the printed `BUNQ_WEBHOOK_SECRET` and `BUNQ_SERVER_PUBLIC_KEY` (base64).
-2. **Set Fly secrets:**
+3. **Set Worker secrets** (or use the Cloudflare dashboard → Workers → Settings →
+   Variables; mark as encrypted):
    ```bash
-   fly secrets set \
-     BUNQ_WEBHOOK_SECRET="<printed>" \
-     BUNQ_SERVER_PUBLIC_KEY="<printed-base64>" \
-     BUNQ_DEFAULT_URL="https://bunq.me/your-link"
+   npx wrangler secret put BUNQ_WEBHOOK_SECRET      # paste printed value
+   npx wrangler secret put BUNQ_SERVER_PUBLIC_KEY   # paste printed base64
+   npx wrangler secret put BUNQ_DEFAULT_URL         # https://bunq.me/your-link
    ```
-3. **Flip the provider:** `fly secrets set PAYMENT_PROVIDER=bunq` (auto-rollout).
-4. **Smoke test:** make a small real payment with your name in the description →
+4. **Flip the provider:** `npx wrangler secret put PAYMENT_PROVIDER` → `bunq`
+   (or set it as a `vars` entry in `wrangler.jsonc` and redeploy).
+5. **Smoke test:** make a small real payment with your name in the description →
    confirm the reconciliation page shows `paid via bunq` + an `audit_log` row.
-5. **Monitor** first 2 weeks; admin keeps the manual spot-check. Then relax cadence.
+6. **Monitor** first 2 weeks; admin keeps the manual spot-check. Then relax cadence.
 
-**Rollback:** `fly secrets set PAYMENT_PROVIDER=tikkie`. Keep the Tikkie link +
-secret valid during the monitoring window. `BUNQ_API_KEY` is NEVER set on Fly —
-it is only used by the local setup script.
+**Cloudflare gotcha:** if Bot Fight Mode / WAF / "Under Attack" mode is on, add a
+WAF skip rule for path `/api/webhooks/*` so bunq's server-to-server POST isn't
+challenged.
+
+**Rollback:** set `PAYMENT_PROVIDER=tikkie`. Keep the Tikkie link valid during
+the monitoring window. `BUNQ_API_KEY` is NEVER set on the Worker — it is only
+used by the local setup script.
 
 ## Cost Notes
 

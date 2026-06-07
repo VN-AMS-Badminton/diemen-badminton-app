@@ -11,30 +11,30 @@ const body = JSON.stringify({ NotificationUrl: { object: { Payment: { id: 1 } } 
 const signature = signSha256(body, server.privateKeyPem);
 
 describe("verifyBunqCallback", () => {
-  it("accepts a valid signature (raw PEM key)", () => {
-    expect(verifyBunqCallback(body, signature, server.publicKeyPem)).toBe(true);
+  it("accepts a valid signature (raw PEM key)", async () => {
+    expect(await verifyBunqCallback(body, signature, server.publicKeyPem)).toBe(true);
   });
 
-  it("accepts a valid signature (base64-encoded PEM key)", () => {
+  it("accepts a valid signature (base64-encoded PEM key)", async () => {
     const b64 = Buffer.from(server.publicKeyPem, "utf8").toString("base64");
-    expect(verifyBunqCallback(body, signature, b64)).toBe(true);
+    expect(await verifyBunqCallback(body, signature, b64)).toBe(true);
   });
 
-  it("rejects a tampered body", () => {
-    expect(verifyBunqCallback(body + " ", signature, server.publicKeyPem)).toBe(false);
+  it("rejects a tampered body", async () => {
+    expect(await verifyBunqCallback(body + " ", signature, server.publicKeyPem)).toBe(false);
   });
 
-  it("rejects a signature from the wrong key", () => {
+  it("rejects a signature from the wrong key", async () => {
     const wrong = signSha256(body, other.privateKeyPem);
-    expect(verifyBunqCallback(body, wrong, server.publicKeyPem)).toBe(false);
+    expect(await verifyBunqCallback(body, wrong, server.publicKeyPem)).toBe(false);
   });
 
-  it("rejects when signature or key is missing", () => {
-    expect(verifyBunqCallback(body, null, server.publicKeyPem)).toBe(false);
-    expect(verifyBunqCallback(body, signature, undefined)).toBe(false);
+  it("rejects when signature or key is missing", async () => {
+    expect(await verifyBunqCallback(body, null, server.publicKeyPem)).toBe(false);
+    expect(await verifyBunqCallback(body, signature, undefined)).toBe(false);
   });
 
-  it("does not throw on malformed key material", () => {
-    expect(verifyBunqCallback(body, signature, "not-a-key")).toBe(false);
+  it("does not throw on malformed key material", async () => {
+    expect(await verifyBunqCallback(body, signature, "not-a-key")).toBe(false);
   });
 });

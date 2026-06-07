@@ -1,18 +1,13 @@
-// Low-level RSA helpers for the bunq API context.
+// Low-level RSA helpers for the bunq API context. Used ONLY by the local
+// one-off setup script (scripts/bunq-setup.ts), which runs in Node — so
+// `node:crypto` is fine here. The runtime callback verification lives in
+// `verify-signature.ts` and uses Web Crypto instead (Workers-compatible).
 //
 // bunq's public API (v1) signs only the raw request BODY with the client's
 // RSA private key (SHA256, PKCS#1 v1.5), base64-encoded, in the
-// `X-Bunq-Client-Signature` header. Callbacks bunq sends us are signed the
-// same way with bunq's server key — see `verify-signature.ts`, which reuses
-// `verifySha256` from here.
-//
-// Node's built-in `crypto` covers all of this; we deliberately avoid an SDK.
+// `X-Bunq-Client-Signature` header.
 
-import {
-  generateKeyPairSync,
-  createSign,
-  createVerify,
-} from "node:crypto";
+import { generateKeyPairSync, createSign } from "node:crypto";
 
 export interface RsaKeypair {
   /** PKCS#8 PEM private key. */
@@ -37,24 +32,4 @@ export function signSha256(data: string, privateKeyPem: string): string {
   signer.update(data, "utf8");
   signer.end();
   return signer.sign(privateKeyPem, "base64");
-}
-
-/**
- * Verify an RSA-SHA256 / PKCS#1 v1.5 signature against a public key.
- * Returns false (never throws) on malformed input so callers can treat any
- * failure as "reject".
- */
-export function verifySha256(
-  data: string | Buffer,
-  signatureBase64: string,
-  publicKeyPem: string,
-): boolean {
-  try {
-    const verifier = createVerify("RSA-SHA256");
-    verifier.update(data);
-    verifier.end();
-    return verifier.verify(publicKeyPem, signatureBase64, "base64");
-  } catch {
-    return false;
-  }
 }
