@@ -83,9 +83,10 @@ in `wrangler.jsonc` (custom domain `vn-ams-badminton.com`). Runtime env is set a
 Worker vars/secrets (`wrangler secret put …` or the Cloudflare dashboard);
 `NEXT_PUBLIC_*` are inlined at build time.
 
-See `docs/soft-launch-playbook.md` for rollout strategy. (Note: the Fly.io
-`docs/deployment-guide.md` and the Vercel references in some docs are stale — the
-live target is Cloudflare Workers.)
+See `docs/deployment-guide.md` for the full Cloudflare Workers setup and
+`docs/soft-launch-playbook.md` for rollout strategy. (Note: `fly.toml`,
+`Dockerfile`, and `.github/workflows/fly-deploy.yml` are stale Fly.io leftovers —
+the live target is Cloudflare Workers.)
 
 ## Project Structure
 

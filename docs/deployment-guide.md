@@ -1,154 +1,136 @@
-# Deployment Guide — Fly.io
+# Deployment Guide — Cloudflare Workers
 
-Production deployment of Diemen Badminton on Fly.io with Docker + GitHub Actions CI/CD.
+Production deployment of Diemen Badminton on **Cloudflare Workers** via OpenNext
+(`@opennextjs/cloudflare`). Supabase is the external database.
+
+> **Legacy note:** `fly.toml`, `Dockerfile`, and `.github/workflows/fly-deploy.yml`
+> are leftovers from a previous Fly.io setup and are **no longer the deploy target**.
+> Likewise, older docs mentioning Vercel are stale. The live app is Cloudflare
+> Workers (proven by `wrangler.jsonc` + the `cf-ray`/`server: cloudflare` response
+> headers on `vn-ams-badminton.com`). See "Legacy cleanup" at the end.
 
 ## Architecture
 
 ```
-GitHub repo                  Fly.io (region: ams)
-─────────────                ─────────────────────
-push to main ──► Actions ──► fly deploy --remote-only
-                                │
-                                ▼
-                          Docker build (Node 22)
-                                │
-                                ▼
-                          1× shared-cpu-1x, 512MB
-                          auto-stop when idle
-                                │
-                                └─► Supabase (external)
+GitHub repo ──push──► Cloudflare Workers Builds ──► opennextjs-cloudflare build
+                                                         │
+                                                         ▼
+                                              Worker: diemen-badminton-app
+                                              (workerd, nodejs_compat)
+                                                 │            │
+                          custom domain ─────────┘            └──── preview URLs
+                          vn-ams-badminton.com                      <branch>-diemen-
+                          (prod)                                    badminton-app.
+                          dev.vn-ams-badminton.com (staging)        <acct>.workers.dev
+                                                 │
+                                                 └─► Supabase (external)
 ```
 
-- **Region:** Amsterdam (`ams`) — ~5ms latency for Diemen members
-- **VM:** shared-cpu-1x / 512MB / scale-to-zero
-- **Build:** remote (Fly builders), no local Docker needed for CI
-- **Runtime env:** Fly secrets (server-only); `NEXT_PUBLIC_*` baked at build time
-- **Expected cost:** $1–4/mo (Fly waives bills under $5)
+- **Runtime:** Cloudflare Workers (`workerd`) with `nodejs_compat`; see `wrangler.jsonc`.
+- **Build:** OpenNext adapter transforms the Next.js build into a Worker bundle
+  (`.open-next/worker.js`).
+- **Runtime env:** Worker vars/secrets (server-only). `NEXT_PUBLIC_*` are inlined
+  into the client bundle **at build time**.
+- **Cost:** Workers free tier (100k requests/day) covers a 30–50 player club with
+  room to spare — effectively free.
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `Dockerfile` | Multi-stage build, Node 22 LTS, Next.js standalone, non-root user |
-| `.dockerignore` | Excludes secrets, build artifacts, docs, `.claude` tooling |
-| `fly.toml` | App config (region, VM size, healthcheck, autoscale) |
-| `next.config.mjs` | `output: "standalone"` enables the lean runtime image |
-| `.github/workflows/fly-deploy.yml` | Auto-deploys `main` to Fly |
+| `wrangler.jsonc` | Worker config: name, custom domain route, `nodejs_compat`, preview URLs, bindings |
+| `open-next.config.ts` | OpenNext Cloudflare adapter config |
+| `next.config.mjs` | Next.js config |
+| `.github/workflows/test.yml` | CI tests |
+
+## Deploy mechanism
+
+Branch pushes produce per-branch **preview URLs** (`preview_urls: true`) and
+pushes to the production branch update the custom domain — this is **Cloudflare
+Workers Builds** (the git integration is configured in the Cloudflare dashboard,
+not in a repo workflow, which is why there is no `wrangler deploy` step in CI).
+
+**Manual deploy / preview from local** (fallback, or when Workers Builds is not
+used):
+
+```bash
+# Build + deploy to the Worker (production)
+npx opennextjs-cloudflare build
+npx wrangler deploy
+
+# Local preview of the built Worker (workerd, closest to prod)
+npx opennextjs-cloudflare build && npx wrangler dev
+```
+
+`pnpm dev` (plain `next dev`) is fine for day-to-day app work; use the Worker
+preview when you need to validate runtime behavior on `workerd` specifically
+(e.g. the bunq webhook crypto path).
 
 ## One-Time Setup
 
-### 1. Install flyctl
+### 1. Supabase
+
+Create the project and run the migrations in `supabase/migrations/` in order
+(SQL editor or `supabase db push`). Apply **new** migrations (e.g. `0024_*`) to
+every environment's DB before deploying code that depends on them.
+
+### 2. Runtime env (Worker vars/secrets)
+
+Set via the Cloudflare dashboard (**Workers & Pages → `diemen-badminton-app` →
+Settings → Variables and Secrets**) or `wrangler`:
 
 ```bash
-brew install flyctl   # macOS
-# or: curl -L https://fly.io/install.sh | sh
-fly auth login
+npx wrangler secret put SUPABASE_SECRET_KEY
+npx wrangler secret put SESSION_SECRET          # openssl rand -base64 32
+npx wrangler secret put PAYMENT_PROVIDER         # "tikkie" (default) | "bunq"
+npx wrangler secret put TIKKIE_DEFAULT_URL
+# bunq secrets are added during the bunq rollout (below), not at first deploy.
 ```
 
-### 2. Create the Fly app
+> **One Worker, shared secrets:** `wrangler.jsonc` defines a single Worker with no
+> `env.*` blocks, so secrets are shared by the production deployment AND all
+> preview URLs. You cannot scope a secret to only a preview with this config; to
+> test a preview without affecting prod, rely on the fact that prod serves the
+> last *deployed* version (a preview-only code path won't run in prod).
 
-From the repo root:
+### 3. Build-time env (`NEXT_PUBLIC_*`)
 
-```bash
-fly apps create diemen-badminton --org personal
-```
+These are inlined into the client bundle at build time, so they must be present
+in the **build** environment (Workers Builds → build settings, or your shell for
+a manual `opennextjs-cloudflare build`):
 
-If `diemen-badminton` is taken, pick another name and **update `app = "..."` in `fly.toml` to match**.
-
-### 3. Set runtime secrets
-
-These are injected at runtime, never baked into the image:
-
-```bash
-fly secrets set \
-  SUPABASE_SERVICE_ROLE_KEY="..." \
-  SESSION_SECRET="$(openssl rand -base64 32)" \
-  PAYMENT_PROVIDER="tikkie" \
-  TIKKIE_DEFAULT_URL="https://tikkie.me/pay/your-link" \
-  BUNQ_DEFAULT_URL="https://bunq.me/your-link"
-```
-
-`PAYMENT_PROVIDER` selects the active provider (`tikkie` | `bunq`). Keep it
-`tikkie` until bunq is verified, then flip — see "bunq payment rollout" below.
-The `BUNQ_WEBHOOK_SECRET` / `BUNQ_SERVER_PUBLIC_KEY` secrets are added during
-that rollout, not at first deploy.
-
-### 4. First deploy (manual, sets the baseline)
-
-`NEXT_PUBLIC_*` vars are inlined into the client bundle at build time → must be passed as `--build-arg`:
-
-```bash
-fly deploy \
-  --build-arg NEXT_PUBLIC_SUPABASE_URL="https://xxx.supabase.co" \
-  --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJ..." \
-  --build-arg NEXT_PUBLIC_APP_URL="https://diemen-badminton.fly.dev" \
-  --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY="<public key from web-push generate-vapid-keys>"
-```
-
-Wait for the build to finish, then verify:
-
-```bash
-fly status
-fly logs
-open https://diemen-badminton.fly.dev
-```
-
-### 5. Wire up GitHub Actions auto-deploy
-
-Generate a deploy token (non-expiring is OK for a personal project; rotate yearly):
-
-```bash
-fly tokens create deploy -x 999999h
-```
-
-Copy the output, then in **GitHub → repo → Settings → Secrets and variables → Actions → New repository secret**, add:
-
-| Secret name | Value |
+| Var | Value |
 |---|---|
-| `FLY_API_TOKEN` | the token printed above |
-| `NEXT_PUBLIC_SUPABASE_URL` | your Supabase URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | your Supabase anon key |
-| `NEXT_PUBLIC_APP_URL` | `https://diemen-badminton.fly.dev` (or custom domain) |
-| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | public key from `npx web-push generate-vapid-keys` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable/anon key |
+| `NEXT_PUBLIC_APP_URL` | `https://vn-ams-badminton.com` (prod) |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | from `npx web-push generate-vapid-keys` |
 
-Push to `main` → GitHub Actions deploys automatically.
+(Full list of names in `env.example.txt`.)
 
-### 6. (Optional) Custom domain
+### 4. Domains
 
-```bash
-fly certs add diemen.example.nl
-# follow the DNS instructions Fly prints (A + AAAA records)
-fly secrets set NEXT_PUBLIC_APP_URL=https://diemen.example.nl  # runtime override
-# and re-deploy so the value gets re-baked into the client bundle:
-fly deploy --build-arg NEXT_PUBLIC_APP_URL=https://diemen.example.nl ...
-```
-
-Also update the `NEXT_PUBLIC_APP_URL` GitHub secret so future CI deploys use the new domain.
+- **Production:** `vn-ams-badminton.com` (custom domain route in `wrangler.jsonc`).
+- **Staging:** `dev.vn-ams-badminton.com`.
+- **Per-branch previews:** `https://<branch>-diemen-badminton-app.<account>.workers.dev`.
 
 ## Day-to-Day Operations
 
-| Task | Command |
+| Task | Command / Where |
 |---|---|
-| Manual deploy from local | `fly deploy --build-arg NEXT_PUBLIC_SUPABASE_URL=... --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=... --build-arg NEXT_PUBLIC_APP_URL=... --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY=...` |
-| Tail logs | `fly logs` |
-| SSH into running VM | `fly ssh console` |
-| Restart | `fly machine restart` |
-| Rotate session secret | `fly secrets set SESSION_SECRET=$(openssl rand -base64 32)` (auto-rollout, logs everyone out) |
-| Scale up | `fly scale memory 1024` (RAM) or `fly scale vm shared-cpu-2x` |
-| Force always-on | Set `min_machines_running = 1` in `fly.toml`, redeploy |
-| Cost dashboard | `fly orgs show personal` or https://fly.io/dashboard/personal/billing |
+| Deploy (manual) | `npx opennextjs-cloudflare build && npx wrangler deploy` |
+| Tail logs | `npx wrangler tail` (or dashboard → Workers → Logs; observability is on) |
+| Set/rotate a secret | `npx wrangler secret put NAME` or dashboard |
+| Rotate session secret | `npx wrangler secret put SESSION_SECRET` (logs everyone out) |
+| List deployments | `npx wrangler deployments list` |
+| Rollback | `npx wrangler rollback [--version-id <id>]`, or revert the commit |
 
 ## bunq Payment Rollout
 
-> **Deploy target:** this app runs on **Cloudflare Workers** (OpenNext) — see
-> `wrangler.jsonc` (custom domain `vn-ams-badminton.com`, `nodejs_compat`). The
-> Fly.io instructions elsewhere in this guide are stale; runtime env for bunq is
-> set as Worker vars/secrets via `wrangler` or the Cloudflare dashboard. The
-> webhook signature check uses Web Crypto so it runs natively on workerd.
-
 bunq auto-reconciliation runs in parallel with Tikkie behind `PAYMENT_PROVIDER`.
 Rollback is a single var flip. The runtime never opens a bunq session — it only
-RECEIVES callbacks — so the auth handshake happens once, locally.
+RECEIVES callbacks — so the auth handshake happens once, locally, and the Worker
+verifies callbacks with Web Crypto.
 
 Sequence (after sandbox verification — see `docs/future-bunq-integration.md`):
 
@@ -162,8 +144,7 @@ Sequence (after sandbox verification — see `docs/future-bunq-integration.md`):
      --register-callback --webhook-url https://vn-ams-badminton.com
    ```
    Copy the printed `BUNQ_WEBHOOK_SECRET` and `BUNQ_SERVER_PUBLIC_KEY` (base64).
-3. **Set Worker secrets** (or use the Cloudflare dashboard → Workers → Settings →
-   Variables; mark as encrypted):
+3. **Set Worker secrets** (dashboard → Variables and Secrets, or):
    ```bash
    npx wrangler secret put BUNQ_WEBHOOK_SECRET      # paste printed value
    npx wrangler secret put BUNQ_SERVER_PUBLIC_KEY   # paste printed base64
@@ -183,34 +164,32 @@ challenged.
 the monitoring window. `BUNQ_API_KEY` is NEVER set on the Worker — it is only
 used by the local setup script.
 
-## Cost Notes
-
-- 1× shared-cpu-1x/512MB always-on: **~$3.20/mo**
-- With `auto_stop_machines = "stop"` and a 30-user club: **~$0.50–2/mo** computed
-- **Fly waives any monthly bill under $5** — so this app is effectively free
-- First 100GB egress free in NA/EU (you'll use <2GB/mo)
-
 ## Troubleshooting
 
 | Symptom | Likely cause |
 |---|---|
-| Login takes 10+ seconds | Cold start after auto-stop — normal, ~300ms once warm. Bump `min_machines_running = 1` to eliminate. |
-| `Error: NEXT_PUBLIC_SUPABASE_URL is not defined` in browser | Missed a `--build-arg`. Re-deploy with all three NEXT_PUBLIC args. |
-| Healthcheck failing | App boots slower than `grace_period = "10s"`. Increase it in `fly.toml`. |
-| Build OOM | Bump build memory: `fly deploy --build-target=builder --vm-memory=2048` (one-off) |
-| "App not found" in CI | `FLY_API_TOKEN` is wrong scope. Regenerate with `fly tokens create deploy`. |
+| `NEXT_PUBLIC_… is not defined` in browser | Build-time var missing in the Workers Builds build env. Rebuild with it set. |
+| Runtime `process.env.X` undefined | Server var/secret not set on the Worker (vars/secrets ≠ build env). |
+| Webhook returns `307 → /?next=` | Build predates the `/api/webhooks` middleware allowlist — redeploy. |
+| Webhook returns Cloudflare challenge page | WAF / Bot Fight Mode challenging bunq's POST — add a skip rule for `/api/webhooks/*`. |
+| `node:crypto` error on workerd | Use Web Crypto in runtime code (the bunq verifier already does); `node:crypto` is for local scripts only. |
 
-## Rollback
+## Legacy cleanup (recommended)
 
-```bash
-fly releases                       # list versions
-fly deploy --image registry.fly.io/diemen-badminton:deployment-XYZ
-```
+The Fly.io setup is dead but its files remain and may still run:
 
-Or revert the offending commit on `main` — CI redeploys automatically.
+- `.github/workflows/fly-deploy.yml` — if it still triggers on push to `main`, it
+  deploys to a Fly app that is no longer the live target (wasteful / confusing).
+  Disable or delete it.
+- `fly.toml`, `Dockerfile`, `.dockerignore` — remove once the workflow is gone.
+
+Left in place pending confirmation — see Unresolved questions.
 
 ## Unresolved questions
 
-- Run scale-to-zero or always-on by default? Auto-stop is cheaper; always-on adds ~$2/mo but kills cold-start latency for the Thursday-evening RSVP burst.
-- Custom domain or stick with `*.fly.dev` for soft launch? `.fly.dev` works fine, just less branded.
-- Add a staging app (`diemen-badminton-staging`) on a `develop` branch, or YAGNI for a 30-person club?
+- Confirm the deploy is **Cloudflare Workers Builds** (dashboard git integration)
+  vs a manual/`wrangler` flow — determines whether build-time `NEXT_PUBLIC_*` live
+  in the dashboard build settings or a CI workflow.
+- OK to delete the Fly artifacts (`fly.toml`, `Dockerfile`, `fly-deploy.yml`)?
+- Is `dev.vn-ams-badminton.com` a separate Worker/environment or the same Worker?
+  (Affects whether staging can have its own bunq secrets.)

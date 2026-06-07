@@ -6,8 +6,8 @@ A 3-phase rollout designed to surface issues with low blast radius before the fu
 
 - [ ] Supabase project provisioned (free tier)
 - [ ] All migrations applied (`0001_init.sql`, `0002_seed_admin.sql` with real values, `0003_rls_policies.sql`, `0004_add_tikkie_url_to_sessions.sql`, `0005_rename_fee_columns_to_per_session.sql`, `0006_add_display_name_to_players.sql`, `0007_add_passed_attendance_source.sql`, `0008_add_location_to_sessions.sql`)
-- [ ] Vercel project deployed, custom domain configured if applicable
-- [ ] All env vars set in Vercel (URL, anon key, service role key, session secret, Tikkie URL, app URL)
+- [ ] Cloudflare Worker deployed (OpenNext), custom domain `vn-ams-badminton.com` configured
+- [ ] All env set: Worker secrets (SUPABASE_SECRET_KEY, SESSION_SECRET, PAYMENT_PROVIDER, payment URLs) + build-time `NEXT_PUBLIC_*`
 - [ ] First admin login tested end-to-end on a real phone
 - [ ] One test invite generated, used to register a test player, approved, logged in, RSVPed (trust-first — no self-mark step)
 - [ ] WhatsApp announcement drafted
@@ -64,7 +64,7 @@ Rollback procedure:
 
 ## Monitoring
 
-- **Vercel Analytics**: traffic + Core Web Vitals
+- **Cloudflare Workers dashboard**: request volume, errors, logs (observability is on)
 - **Supabase logs**: review weekly for unexpected error rates
 - **Admin audit log**: spot-check for unusual activity
 - **Player feedback channel**: keep open in WhatsApp
