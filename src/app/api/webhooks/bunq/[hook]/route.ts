@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { verifyBunqCallback } from "@/lib/payments/bunq/verify-signature";
 import { parseBunqCallback } from "@/lib/payments/bunq/parse-callback";
 import { reconcileBunqPayment } from "@/lib/payments/bunq/reconcile";
 
-/** Constant-time string compare (avoids leaking the secret via timing). */
+// Constant-time string compare (avoids leaking the secret via timing). Pure JS
+// so it runs on the Cloudflare Workers runtime without node:crypto. Length is
+// not secret (a mismatch returns early); the value comparison is constant-time.
 function secretsEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
-  return ab.length === bb.length && timingSafeEqual(ab, bb);
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
 
 // bunq MUTATION callback receiver.
@@ -47,7 +49,7 @@ export async function POST(
   // and log loudly that verification was skipped.
   const serverKey = process.env.BUNQ_SERVER_PUBLIC_KEY;
   if (serverKey) {
-    const signatureValid = verifyBunqCallback(
+    const signatureValid = await verifyBunqCallback(
       rawBody,
       req.headers.get("X-Bunq-Server-Signature"),
       serverKey,
