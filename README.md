@@ -6,7 +6,7 @@ Mobile-friendly web app for managing a 30+ player Dutch badminton club.
 - Weekly RSVP (subscribers opt out, drop-ins opt in)
 - Honor-system payment tracking via personal Tikkie
 
-Stack: Next.js 15 (App Router, TS) + Supabase (Postgres + RLS) + Tailwind + shadcn/ui + Vercel.
+Stack: Next.js 15 (App Router, TS) + Supabase (Postgres + RLS) + Tailwind + shadcn/ui, deployed on Cloudflare Workers (OpenNext).
 
 ## Local Development
 
@@ -78,12 +78,14 @@ Open http://localhost:3000.
 
 ## Production Deployment
 
-- Push to GitHub
-- Connect repo to Vercel
-- Set all env vars from `.env.local` in Vercel project settings
-- Deploy
+Deployed to **Cloudflare Workers** via OpenNext (`@opennextjs/cloudflare`); config
+in `wrangler.jsonc` (custom domain `vn-ams-badminton.com`). Runtime env is set as
+Worker vars/secrets (`wrangler secret put …` or the Cloudflare dashboard);
+`NEXT_PUBLIC_*` are inlined at build time.
 
-See `docs/soft-launch-playbook.md` for rollout strategy.
+See `docs/soft-launch-playbook.md` for rollout strategy. (Note: the Fly.io
+`docs/deployment-guide.md` and the Vercel references in some docs are stale — the
+live target is Cloudflare Workers.)
 
 ## Project Structure
 

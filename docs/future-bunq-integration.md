@@ -26,7 +26,9 @@ Design changes vs the original sketch below:
   registration run once, locally, via the setup script; the app only RECEIVES
   callbacks and verifies them with the stored server public key. This removes
   the keypair-persistence / static-IP concerns entirely.
-- **Node runtime**, not edge (RSA needs `crypto`). Deploy target is Fly.io.
+- **Deploy target is Cloudflare Workers** (OpenNext) — NOT Vercel or Fly (those
+  appear in older docs and are stale). The webhook signature check therefore uses
+  **Web Crypto** (`crypto.subtle`), which is native on workerd, not `node:crypto`.
 - **Trust-first model**: the enum is `assumed_paid | flagged | unpaid` (not the
   `owed/admin_confirmed` states below). Webhook actions: `unpaid` drop-in →
   `assumed_paid`; `flagged` → auto-unflag on exact match; `assumed_paid` → attach
@@ -112,7 +114,7 @@ Two viable paths:
 
 ### Phase B.3 — Production Cutover
 1. Register production webhook with real account
-2. Add `BUNQ_API_KEY`, `BUNQ_WEBHOOK_SECRET` to Vercel env vars
+2. Add `BUNQ_WEBHOOK_SECRET` + `BUNQ_SERVER_PUBLIC_KEY` as Cloudflare Worker secrets (`BUNQ_API_KEY` is setup-script-only, never on the Worker)
 3. Monitor first week of payments; admin still does spot-check
 4. After 2 weeks of clean automatic confirmation, drop daily reconciliation cadence
 
@@ -151,7 +153,7 @@ If neither matches exactly: leave for manual review (could be partial payment, o
 
 - Signature verification is mandatory; reject unsigned requests
 - API key stored server-only (`BUNQ_API_KEY`, never `NEXT_PUBLIC_`)
-- Webhook endpoint rate-limited (Vercel edge: ~100 req/s should suffice)
+- Webhook endpoint rate-limited (Cloudflare Workers handles this scale trivially)
 - Audit log entries for every webhook event (signature ok, match outcome, action taken)
 - No additional PII captured beyond what we already store
 
