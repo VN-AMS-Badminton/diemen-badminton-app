@@ -4,44 +4,68 @@
   "compatibility_date": "2026-06-05",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
 
+  // Top-level name is required by the schema. Deploys always target a named
+  // environment (`--env prd` / `--env dev`), so this top-level config is never
+  // deployed directly — that's what silences the "no target environment" warning.
   "name": "diemen-badminton-app-prd",
-  "observability": {
-    "logs": {
-      "enabled": true,
-      "invocation_logs": true,
-    },
-  },
-  "routes": [
-    {
-      "pattern": "vn-ams-badminton.com",
-      "custom_domain": true,
-    },
-  ],
-  "preview_urls": false,
-  "assets": {
-    "directory": ".open-next/assets",
-    "binding": "ASSETS",
-  },
-  "services": [
-    {
-      // see https://opennext.js.org/cloudflare/caching
-      // self-reference MUST match this env's worker name
-      "binding": "WORKER_SELF_REFERENCE",
-      "service": "diemen-badminton-app-prd",
-    },
-  ],
-  "images": {
-    // see https://opennext.js.org/cloudflare/howtos/image
-    "binding": "IMAGES",
-  },
 
   "env": {
+    "prd": {
+      "name": "diemen-badminton-app-prd",
+      "observability": {
+        "enabled": false,
+        "head_sampling_rate": 1,
+        "logs": {
+          "enabled": true,
+          "head_sampling_rate": 1,
+          "persist": true,
+          "invocation_logs": true,
+        },
+        "traces": {
+          "enabled": false,
+          "persist": true,
+          "head_sampling_rate": 1,
+        },
+      },
+      "routes": [
+        {
+          "pattern": "vn-ams-badminton.com",
+          "custom_domain": true,
+        },
+      ],
+      "preview_urls": false,
+      "assets": {
+        "directory": ".open-next/assets",
+        "binding": "ASSETS",
+      },
+      "services": [
+        {
+          // see https://opennext.js.org/cloudflare/caching
+          // self-reference MUST match this env's worker name
+          "binding": "WORKER_SELF_REFERENCE",
+          "service": "diemen-badminton-app-prd",
+        },
+      ],
+      "images": {
+        // see https://opennext.js.org/cloudflare/howtos/image
+        "binding": "IMAGES",
+      },
+    },
     "dev": {
       "name": "diemen-badminton-app-dev",
       "observability": {
+        "enabled": false,
+        "head_sampling_rate": 1,
         "logs": {
           "enabled": true,
+          "head_sampling_rate": 1,
+          "persist": true,
           "invocation_logs": true,
+        },
+        "traces": {
+          "enabled": false,
+          "persist": true,
+          "head_sampling_rate": 1,
         },
       },
       "routes": [
