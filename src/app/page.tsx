@@ -36,7 +36,7 @@ export default async function HomePage() {
         </div>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          New here? Ask the club admin for an invite link.
+          a New here? Ask the club admin for an invite link.
         </p>
         <footer className="mt-12 text-center text-xs text-muted-foreground">
           We store your username, WhatsApp number, and payment status. Only the
