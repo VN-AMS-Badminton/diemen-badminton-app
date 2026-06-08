@@ -54,7 +54,7 @@ pnpm db:stop
 | `TIKKIE_DEFAULT_URL` | Fallback pay link for sessions without an override |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Web Push public key (generated via `npx web-push generate-vapid-keys`) |
 | `VAPID_PRIVATE_KEY` | Web Push private key (server-only) |
-| `VAPID_SUBJECT` | Mailto address for Web Push, e.g., `mailto:admin@diemen.nl` |
+| `VAPID_SUBJECT` | Mailto address for Web Push, e.g., `mailto:admin@example.com` |
 
 `pnpm db:env` populates the Supabase trio + a freshly-generated
 `SESSION_SECRET` automatically. Tikkie URL and APP_URL get sensible
@@ -68,7 +68,9 @@ Copy both keys and the subject email into `.env.local`.
 
 ## Production env vars
 
-Set the same variable names in your hosting provider (Vercel/etc.). The
+Set the same variable names in your hosting provider. The canonical
+production deployment target is **Cloudflare** — see
+[deployment-guide.md](./deployment-guide.md) for the full setup. The
 production `NEXT_PUBLIC_SUPABASE_URL` and keys come from the Supabase
 dashboard for the linked project (`supabase/.temp/project-ref` records
 which one). Never commit prod keys.

@@ -1,29 +1,14 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository (VN-AMS Badminton — Next.js 15 + Supabase web app).
 
-## Role & Responsibilities
-
-Your role is to analyze user requirements, delegate tasks to appropriate sub-agents, and ensure cohesive delivery of features that meet specifications and architectural standards.
-
-## Workflows
-
-- Primary workflow: `./.claude/rules/primary-workflow.md`
-- Development rules: `./.claude/rules/development-rules.md`
-- Orchestration protocols: `./.claude/rules/orchestration-protocol.md`
-- Documentation management: `./.claude/rules/documentation-management.md`
-- And other workflows: `./.claude/rules/*`
-
-**IMPORTANT:** Analyze the skills catalog and activate the skills that are needed for the task during the process.
-**IMPORTANT:** DO NOT modify skills in `~/.claude/skills` directory directly. **MUST** modify skills in this current working directory. Unless you are asked to do so.
-**IMPORTANT:** You must follow strictly the development rules in `./.claude/rules/development-rules.md` file.
-**IMPORTANT:** Before you plan or proceed any implementation, always read the `./README.md` file first to get context.
+**IMPORTANT:** Before you plan or proceed with any implementation, always read `./README.md` first for context.
 **IMPORTANT:** Sacrifice grammar for the sake of concision when writing reports.
 **IMPORTANT:** In reports, list any unresolved questions at the end, if any.
 
 ## Git
 
-**DO NOT** use `chore` and `docs` in commit messages of file changes in `.claude` directory.
+Use conventional commit types (`feat`, `fix`, `refactor`, `test`, `style`, `perf`, `ci`, `build`, `revert`). Only commit when the user explicitly asks.
 
 ## Hook Response Protocol
 
@@ -56,16 +41,6 @@ When a tool call is blocked by the privacy-block hook, the output contains a JSO
 
 **IMPORTANT:** Always ask the user via `AskUserQuestion` first. Never try to work around the privacy block without explicit user approval.
 
-## Python Scripts (Skills)
-
-When running Python scripts from `.claude/skills/`, use the venv Python interpreter:
-- **Linux/macOS:** `.claude/skills/.venv/bin/python3 scripts/xxx.py`
-- **Windows:** `.claude\skills\.venv\Scripts\python.exe scripts\xxx.py`
-
-This ensures packages installed by `install.sh` (google-genai, pypdf, etc.) are available.
-
-**IMPORTANT:** When scripts of skills failed, don't stop, try to fix them directly.
-
 ## [IMPORTANT] Consider Modularization
 - If a code file exceeds 200 lines of code, consider modularizing it
 - Check existing modules before creating new
@@ -75,19 +50,22 @@ This ensures packages installed by `install.sh` (google-genai, pypdf, etc.) are 
 - After modularization, continue with main task
 - When not to modularize: Markdown files, plain text files, bash scripts, configuration files, environment variables files, etc.
 
-## Documentation Management
+## Documentation
 
-We keep all important docs in `./docs` folder and keep updating them, structure like below:
+Important docs live in `./docs`. Keep them updated.
 
 ```
 ./docs
-├── project-overview-pdr.md
-├── code-standards.md
-├── codebase-summary.md
-├── design-guidelines.md
-├── deployment-guide.md
+├── project-overview.md
 ├── system-architecture.md
-└── project-roadmap.md
+├── database-schema.md
+├── design-guidelines.md
+├── local-development.md
+├── deployment-guide.md
+├── code-standards.md
+├── project-roadmap.md
+├── soft-launch-playbook.md
+└── future/
+    ├── bunq-integration.md
+    └── refactor-write-audit-injectable-sb.md
 ```
-
-**IMPORTANT:** *MUST READ* and *MUST COMPLY* all *INSTRUCTIONS* in project `./CLAUDE.md`, especially *WORKFLOWS* section is *CRITICALLY IMPORTANT*, this rule is *MANDATORY. NON-NEGOTIABLE. NO EXCEPTIONS. MUST REMEMBER AT ALL TIMES!!!*

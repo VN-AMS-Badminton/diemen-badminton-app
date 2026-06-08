@@ -1,6 +1,6 @@
 # Design System: High-Velocity Precision
 
-Yonex-inspired design language for Smash Pro / Diemen Badminton. Royal Blue authority + Emerald action, sharp typography, mobile-first, high contrast.
+Yonex-inspired design language for VN-AMS Badminton. Royal Blue authority + Emerald action, sharp typography, mobile-first, high contrast.
 
 ## 1. Principles
 
@@ -69,7 +69,7 @@ Hover/active for primary and brand use lightness shifts (+6%, -6%).
 - Elevation:
   - `shadow-sm` for cards (default)
   - `shadow-md` for elevated CTAs only (sparingly)
-  - Custom blue-tinted shadow on hover for brand cards: `0 4px 14px 0 hsl(211 100% 26% / 0.08)`
+  - Custom blue-tinted shadow on hover for brand cards: `0 4px 14px 0 hsl(var(--brand) / 0.10)`
 
 ## 6. Components
 

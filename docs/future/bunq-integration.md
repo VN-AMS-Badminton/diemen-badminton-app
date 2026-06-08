@@ -2,7 +2,7 @@
 
 **Status:** deferred. v1 ships with honor-system + admin spot-check. This doc captures the design so a future session can implement without re-research.
 
-**Last reviewed:** 2026-05-13
+**Last reviewed:** 2026-06-08
 
 ## When to Build This
 
@@ -23,20 +23,22 @@ Player pays via Tikkie/iDEAL/SEPA
   → webhook handler:
       1. Verify signature (Bunq's RSA public key)
       2. Parse payment description for username
-      3. Find matching attendance or subscription row
-         where payment_status IN ('owed', 'self_marked_paid')
+      3. Find matching attendance row (including subscription-sourced rows where source='subscription')
+         where payment_status IN ('unpaid', 'assumed_paid')
          and amount matches expected fee
-      4. Set payment_status='admin_confirmed', bunq_payment_id=<bunq id>
+      4. Set payment_status='assumed_paid', bunq_payment_id=<bunq id>
+         (admin can later mark 'flagged' if discrepancy found)
       5. Append audit_log row (actor=null, action='bunq_confirm')
       6. Return 200
-  → on 0 matches or >1 matches: leave row alone, admin sees flagged item
+  → on 0 matches or >1 matches: leave row alone, set payment_status='flagged', admin sees flagged item
 ```
 
 ## Data Model (already in place — no migration needed)
 
-The phase 02 schema reserved these nullable columns specifically for this:
-- `attendance.bunq_payment_id text`
-- `subscriptions.bunq_payment_id text`
+The schema reserved these nullable columns specifically for this:
+- `attendance.bunq_payment_id text` (used for all attendance rows, including those with `source='subscription'`)
+
+Note: the `subscriptions` table was dropped (migration 0017). Subscribers are now represented as `attendance` rows with `source = 'subscription'`. There is no separate bunq_payment_id column for subscriptions; all payment tracking goes through `attendance.bunq_payment_id`.
 
 When set, the admin reconciliation UI should render a small badge: `paid via Bunq <truncated-id>`.
 
@@ -79,7 +81,11 @@ Two viable paths:
 
 ### Phase B.3 — Production Cutover
 1. Register production webhook with real account
-2. Add `BUNQ_API_KEY`, `BUNQ_WEBHOOK_SECRET` to Vercel env vars
+2. Set `BUNQ_API_KEY` and `BUNQ_WEBHOOK_SECRET` as Cloudflare secrets:
+   ```
+   wrangler secret put BUNQ_API_KEY
+   wrangler secret put BUNQ_WEBHOOK_SECRET
+   ```
 3. Monitor first week of payments; admin still does spot-check
 4. After 2 weeks of clean automatic confirmation, drop daily reconciliation cadence
 
@@ -102,8 +108,8 @@ If `confidence !== "high"`: do NOT auto-confirm. Append an `audit_log` row with 
 ## Amount Matching
 
 After username match, verify the payment amount equals either:
-- `season.subscription_fee_cents` (subscription Tikkie) → match against unpaid subscription
-- `season.drop_in_fee_cents` (drop-in Tikkie) → match against owed attendance
+- `season.subscription_fee_per_session_cents` (subscription Tikkie) → match against attendance row with `source='subscription'` and `payment_status='unpaid'`
+- `season.drop_in_fee_per_session_cents` (drop-in Tikkie) → match against attendance row with `source='drop_in'` and `payment_status='unpaid'`
 
 If neither matches exactly: leave for manual review (could be partial payment, overpayment, refund).
 
@@ -118,7 +124,7 @@ If neither matches exactly: leave for manual review (could be partial payment, o
 
 - Signature verification is mandatory; reject unsigned requests
 - API key stored server-only (`BUNQ_API_KEY`, never `NEXT_PUBLIC_`)
-- Webhook endpoint rate-limited (Vercel edge: ~100 req/s should suffice)
+- Webhook endpoint rate-limited (Cloudflare Workers handles edge rate limiting natively; low-latency, no Node deps)
 - Audit log entries for every webhook event (signature ok, match outcome, action taken)
 - No additional PII captured beyond what we already store
 

@@ -1,13 +1,13 @@
-# Soft Launch Playbook — Diemen Badminton
+# Soft Launch Playbook — VN-AMS Badminton
 
 A 3-phase rollout designed to surface issues with low blast radius before the full club switches over.
 
 ## Pre-launch Checklist
 
 - [ ] Supabase project provisioned (free tier)
-- [ ] All migrations applied (`0001_init.sql`, `0002_seed_admin.sql` with real values, `0003_rls_policies.sql`, `0004_add_tikkie_url_to_sessions.sql`, `0005_rename_fee_columns_to_per_session.sql`, `0006_add_display_name_to_players.sql`, `0007_add_passed_attendance_source.sql`, `0008_add_location_to_sessions.sql`)
-- [ ] Vercel project deployed, custom domain configured if applicable
-- [ ] All env vars set in Vercel (URL, anon key, service role key, session secret, Tikkie URL, app URL)
+- [ ] All migrations applied — apply all migrations in `supabase/migrations/` (e.g. `supabase db push`)
+- [ ] Cloudflare Worker deployed to `vn-ams-badminton.com`, custom domain configured
+- [ ] Build-time `NEXT_PUBLIC_*` vars set (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`) and server secrets set via `wrangler secret put` (`SUPABASE_SECRET_KEY`, `SESSION_SECRET`, `TIKKIE_DEFAULT_URL`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`)
 - [ ] First admin login tested end-to-end on a real phone
 - [ ] One test invite generated, used to register a test player, approved, logged in, RSVPed (trust-first — no self-mark step)
 - [ ] WhatsApp announcement drafted
@@ -64,7 +64,7 @@ Rollback procedure:
 
 ## Monitoring
 
-- **Vercel Analytics**: traffic + Core Web Vitals
+- **Cloudflare Workers logs/observability**: traffic + error rates
 - **Supabase logs**: review weekly for unexpected error rates
 - **Admin audit log**: spot-check for unusual activity
 - **Player feedback channel**: keep open in WhatsApp
@@ -84,7 +84,7 @@ Rollback procedure:
 
 Run after applying `0017_season_flow_simplification.sql` and deploying. Execute manually on a non-production Supabase project.
 
-1. **Create season** at `/admin/seasons` — fields no longer include weekday/start-time. Season opens in `poll` status.
+1. **Create season** at `/admin/seasons` — set the date range and weekly schedule template (weekday + start/end time). Season opens in `poll` status.
 2. **Open season detail** at `/admin/seasons/[id]` — verify the calendar batch-creator card is shown (no "Book season" form).
 3. **Add sessions** — pick 4 days, set time + location + capacity, click "Add 4 sessions". Verify rows appear in the sessions table.
 4. **Subscribe as player** — on dashboard, the poll card lists each session and a total. Click Subscribe → attendance rows are created (one per session, `source=subscription`).
@@ -99,4 +99,4 @@ Run after applying `0017_season_flow_simplification.sql` and deploying. Execute 
 
 - Final PIN length: 4 for players, 6 for admins?
 - Tikkie default URL vs per-season override — confirm default in env
-- Capacity formula — courts × 4 default vs explicit per-season override
+- Capacity formula — courts × 6 default vs explicit per-season override

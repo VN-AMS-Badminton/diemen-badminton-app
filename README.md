@@ -1,99 +1,70 @@
-# Diemen Badminton App
+# VN-AMS Badminton
 
-Mobile-friendly web app for managing a 30+ player Dutch badminton club.
+Mobile-friendly web app for a 30+ player Dutch (Diemen/Amsterdam) badminton club. Each month, active players fill in a subscription poll to declare participation for the upcoming season; each week, subscribers are automatically opted in and can opt out, while drop-ins must explicitly opt in. Payments are handled honor-system style via a personal Tikkie link, and the app tracks who has paid without automating bank reconciliation.
 
-- Monthly subscription poll
-- Weekly RSVP (subscribers opt out, drop-ins opt in)
-- Honor-system payment tracking via personal Tikkie
+## Stack
 
-Stack: Next.js 15 (App Router, TS) + Supabase (Postgres + RLS) + Tailwind + shadcn/ui + Vercel.
+- Next.js 15 (App Router, TypeScript)
+- Supabase (Postgres + RLS)
+- Tailwind CSS + shadcn/ui
+- OpenNext → Cloudflare Workers
+- pnpm
 
-## Local Development
+## Quickstart
 
-### 1. Install Node 24+
+**Prerequisites:** Node `^22 || >=24`, `corepack enable` (one-time), Docker (for local Supabase).
 
 ```bash
-nvm use
-corepack enable           # one-time: pins pnpm via packageManager field
 pnpm install
-```
 
-### 2. Create a Supabase project
+# Start local Supabase and write .env.local
+pnpm db:start
+pnpm db:env
 
-1. https://supabase.com/dashboard → New project (free tier OK)
-2. Copy these from Project Settings → API:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-
-### 3. Configure environment variables
-
-Copy `env.example.txt` to `.env.local` (gitignored) and fill in:
-
-```
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
-SESSION_SECRET=<openssl rand -base64 32>
-TIKKIE_DEFAULT_URL=https://tikkie.me/pay/<your-personal-link>
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
-
-For push notifications, generate a VAPID keypair and add to `.env.local`:
-
-```bash
-npx web-push generate-vapid-keys
-```
-
-```
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=<public key from above>
-VAPID_PRIVATE_KEY=<private key from above>
-VAPID_SUBJECT=mailto:<your-email>
-```
-
-### 4. Apply database migrations
-
-Run these SQL files in order in the Supabase SQL editor (or via `supabase db push`):
-
-1. `supabase/migrations/0001_init.sql`
-2. `supabase/migrations/0003_rls_policies.sql`
-3. Generate an admin PIN hash:
-   ```bash
-   pnpm hash-pin -- 123456
-   ```
-   Copy the hash output into `supabase/migrations/0002_seed_admin.sql` and customize the admin username + WhatsApp number, then run that migration.
-
-### 5. Run dev server
-
-```bash
+# Start dev server
 pnpm dev
 ```
 
 Open http://localhost:3000.
 
-## Production Deployment
+Detailed local setup: [docs/local-development.md](./docs/local-development.md).
 
-- Push to GitHub
-- Connect repo to Vercel
-- Set all env vars from `.env.local` in Vercel project settings
-- Deploy
+## Environment
 
-See `docs/soft-launch-playbook.md` for rollout strategy.
+Copy `env.example.txt` to `.env.local` (gitignored). `pnpm db:env` populates the Supabase values automatically for local development.
 
-## Project Structure
+| Variable | Purpose |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (public) |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase anon/publishable key (public) |
+| `SUPABASE_SECRET_KEY` | Supabase service-role secret (server only) |
+| `SESSION_SECRET` | Secret used to sign session cookies (`openssl rand -base64 32`) |
+| `TIKKIE_DEFAULT_URL` | Personal Tikkie payment link shown to players |
+| `NEXT_PUBLIC_APP_URL` | Canonical app URL (e.g. `http://localhost:3000`) |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | VAPID public key for Web Push notifications |
+| `VAPID_PRIVATE_KEY` | VAPID private key for Web Push notifications |
+| `VAPID_SUBJECT` | VAPID contact (`mailto:admin@example.com`) |
 
-```
-src/
-├── app/                # Next.js App Router pages, server actions, API routes
-├── components/         # React components (ui/, auth/, player/, admin/)
-└── lib/                # Server utilities (auth, db, sessions, supabase, payments)
+Generate VAPID keys with: `npx web-push generate-vapid-keys`
 
-supabase/migrations/    # Versioned SQL migrations
-scripts/                # One-off helpers (hash-pin)
-docs/                   # Architecture, deployment, future work
-```
+## Database
 
-## Roadmap
+Apply all migrations in `supabase/migrations/` (e.g. `supabase db push`).
 
-- v1 (current): manual Tikkie + honor-system payment tracking
-- Future: Bunq webhook auto-confirmation — see `docs/future-bunq-integration.md`
+## Deployment
+
+Deployed to Cloudflare Workers via OpenNext; see [docs/deployment-guide.md](./docs/deployment-guide.md).
+
+## Docs
+
+- [Project overview](./docs/project-overview.md)
+- [System architecture](./docs/system-architecture.md)
+- [Database schema](./docs/database-schema.md)
+- [Design guidelines](./docs/design-guidelines.md)
+- [Local development](./docs/local-development.md)
+- [Deployment guide](./docs/deployment-guide.md)
+- [Code standards](./docs/code-standards.md)
+- [Project roadmap](./docs/project-roadmap.md)
+- [Soft launch playbook](./docs/soft-launch-playbook.md)
+- [Future: Bunq integration](./docs/future/bunq-integration.md)
+- [Future: Refactor write-audit injectable Supabase](./docs/future/refactor-write-audit-injectable-sb.md)
