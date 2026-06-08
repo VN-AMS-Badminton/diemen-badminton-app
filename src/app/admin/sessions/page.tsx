@@ -3,6 +3,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { countOccupiedBySession } from "@/lib/sessions/count-occupied-by-session";
 import { formatDate, formatTime } from "@/lib/format";
 
 export default async function AdminSessionsPage() {
@@ -24,6 +25,14 @@ export default async function AdminSessionsPage() {
       .limit(20),
   ]);
 
+  // Occupied seats per session = confirmed ('in') RSVPs, for the "Occupied"
+  // column below. One batched query covers both upcoming and past tables.
+  const allRows = [...(upcoming ?? []), ...(past ?? [])];
+  const occupiedBySession = await countOccupiedBySession(
+    sb,
+    allRows.map((r) => r.id),
+  );
+
   return (
     <div className="space-y-8">
       <h1 className="text-2xl font-bold">Sessions</h1>
@@ -33,7 +42,7 @@ export default async function AdminSessionsPage() {
         {(upcoming ?? []).length === 0 ? (
           <EmptyState title="No upcoming sessions" />
         ) : (
-          <SessionTable rows={upcoming ?? []} />
+          <SessionTable rows={upcoming ?? []} occupied={occupiedBySession} />
         )}
       </section>
 
@@ -42,7 +51,7 @@ export default async function AdminSessionsPage() {
         {(past ?? []).length === 0 ? (
           <EmptyState title="No past sessions" />
         ) : (
-          <SessionTable rows={past ?? []} />
+          <SessionTable rows={past ?? []} occupied={occupiedBySession} />
         )}
       </section>
     </div>
@@ -56,7 +65,13 @@ interface S {
   capacity: number;
   status: string;
 }
-function SessionTable({ rows }: { rows: S[] }) {
+function SessionTable({
+  rows,
+  occupied,
+}: {
+  rows: S[];
+  occupied: Map<string, number>;
+}) {
   return (
     <Table>
       <THead>
@@ -64,17 +79,25 @@ function SessionTable({ rows }: { rows: S[] }) {
           <TH>Date</TH>
           <TH>Slot</TH>
           <TH>Location</TH>
+          <TH>Occupied</TH>
           <TH>Capacity</TH>
           <TH>Status</TH>
           <TH className="text-right">Actions</TH>
         </TR>
       </THead>
       <TBody>
-        {rows.map((r) => (
+        {rows.map((r) => {
+          const filled = occupied.get(r.id) ?? 0;
+          return (
           <TR key={r.id}>
             <TD>{formatDate(r.start_at)}</TD>
             <TD>{formatTime(r.start_at)}</TD>
             <TD className="text-sm text-muted-foreground">{r.location ?? "—"}</TD>
+            <TD>
+              <span className={filled >= r.capacity ? "font-medium text-success" : undefined}>
+                {filled}
+              </span>
+            </TD>
             <TD>{r.capacity}</TD>
             <TD>
               <Badge>{r.status}</Badge>
@@ -88,7 +111,8 @@ function SessionTable({ rows }: { rows: S[] }) {
               </Link>
             </TD>
           </TR>
-        ))}
+          );
+        })}
       </TBody>
     </Table>
   );
