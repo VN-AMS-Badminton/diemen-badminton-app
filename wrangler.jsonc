@@ -1,9 +1,10 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "main": ".open-next/worker.js",
-  "name": "diemen-badminton-app",
   "compatibility_date": "2026-06-05",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+
+  "name": "diemen-badminton-app-prd",
   "observability": {
     "logs": {
       "enabled": true,
@@ -16,7 +17,7 @@
       "custom_domain": true,
     },
   ],
-  "preview_urls": true,
+  "preview_urls": false,
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS",
@@ -24,12 +25,45 @@
   "services": [
     {
       // see https://opennext.js.org/cloudflare/caching
+      // self-reference MUST match this env's worker name
       "binding": "WORKER_SELF_REFERENCE",
-      "service": "diemen-badminton-app",
+      "service": "diemen-badminton-app-prd",
     },
   ],
   "images": {
     // see https://opennext.js.org/cloudflare/howtos/image
     "binding": "IMAGES",
+  },
+
+  "env": {
+    "dev": {
+      "name": "diemen-badminton-app-dev",
+      "observability": {
+        "logs": {
+          "enabled": true,
+          "invocation_logs": true,
+        },
+      },
+      "routes": [
+        {
+          "pattern": "dev.vn-ams-badminton.com",
+          "custom_domain": true,
+        },
+      ],
+      "preview_urls": true,
+      "assets": {
+        "directory": ".open-next/assets",
+        "binding": "ASSETS",
+      },
+      "services": [
+        {
+          "binding": "WORKER_SELF_REFERENCE",
+          "service": "diemen-badminton-app-dev",
+        },
+      ],
+      "images": {
+        "binding": "IMAGES",
+      },
+    },
   },
 }
