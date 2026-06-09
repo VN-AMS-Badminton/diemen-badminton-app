@@ -2,9 +2,6 @@
 const nextConfig = {
   // Emits .next/standalone with a self-contained Node server for Docker.
   output: "standalone",
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   productionBrowserSourceMaps: false,
   serverExternalPackages: ["bcryptjs"],
   async headers() {
