@@ -68,6 +68,12 @@ export async function POST(
     );
   }
 
+  // Sandbox aid: log the raw callback so we can confirm bunq's exact MUTATION
+  // shape against the parser. Gate behind BUNQ_DEBUG; never enable in prod.
+  if (process.env.BUNQ_DEBUG) {
+    console.log("[bunq webhook] raw callback body:", rawBody);
+  }
+
   let body: unknown;
   try {
     body = JSON.parse(rawBody);
@@ -76,6 +82,9 @@ export async function POST(
   }
 
   const payment = parseBunqCallback(body);
+  if (process.env.BUNQ_DEBUG) {
+    console.log("[bunq webhook] parsed payment:", JSON.stringify(payment));
+  }
   if (!payment) {
     // Not a payment-bearing callback we understand (e.g. a non-MUTATION event).
     // Acknowledge so bunq doesn't retry.
