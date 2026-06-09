@@ -68,7 +68,8 @@ Copy both keys and the subject email into `.env.local`.
 
 ## Production env vars
 
-Set the same variable names in your hosting provider (Vercel/etc.). The
+Set the same variable names on the Cloudflare Worker (secrets + build-time
+`NEXT_PUBLIC_*`) — see `docs/deployment-guide.md`. The
 production `NEXT_PUBLIC_SUPABASE_URL` and keys come from the Supabase
 dashboard for the linked project (`supabase/.temp/project-ref` records
 which one). Never commit prod keys.

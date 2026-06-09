@@ -14,6 +14,11 @@ import {
 } from "@/lib/referrals/get-remaining-slots";
 import { listMyReferrals } from "@/lib/referrals/list-my-referrals";
 import { getWaitlistPosition } from "@/lib/waitlist/get-waitlist-position";
+import {
+  getActiveProvider,
+  providerDefaultUrl,
+  providerLabel,
+} from "@/lib/payments/provider";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -72,8 +77,9 @@ export default async function DashboardPage() {
     poll.status === "poll" &&
     poll.poll_closes_at >= new Date().toISOString();
 
-  const tikkieUrl =
-    poll?.tikkie_url_override ?? process.env.TIKKIE_DEFAULT_URL ?? "";
+  // Subscription payment link: season-level override → active provider default.
+  const provider = getActiveProvider();
+  const payUrl = poll?.tikkie_url_override ?? providerDefaultUrl(provider);
 
   return (
     <main className="container mx-auto max-w-md space-y-6 px-4 py-6">
@@ -103,7 +109,8 @@ export default async function DashboardPage() {
           yearMonth={poll.year_month}
           sessions={pollSessions}
           perSessionCents={poll.subscription_fee_per_session_cents}
-          tikkieUrl={tikkieUrl}
+          payUrl={payUrl}
+          providerLabel={providerLabel(provider)}
           username={player.username}
           displayName={player.display_name}
           isSubscribed={isSubscribed}

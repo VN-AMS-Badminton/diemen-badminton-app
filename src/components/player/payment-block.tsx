@@ -13,9 +13,12 @@ import type { PaymentStatus } from "@/lib/db/types";
 //
 // The "Copy name" button writes `Display Name (username)` to the clipboard
 // when display_name is set, otherwise just the username — this lets the admin
-// match the Tikkie payer against either field.
+// match the payer against either field.
 interface Props {
-  tikkieUrl: string;
+  /** Provider-agnostic payment link (Tikkie or bunq depending on active provider). */
+  payUrl: string;
+  /** Human-facing provider label, e.g. "Tikkie" or "bunq". */
+  providerLabel: string;
   amountCents: number;
   username: string;
   // Optional. When present, the copied clipboard payload becomes
@@ -32,7 +35,8 @@ interface Props {
 }
 
 export function PaymentBlock({
-  tikkieUrl,
+  payUrl,
+  providerLabel,
   amountCents,
   username,
   displayName,
@@ -92,8 +96,8 @@ export function PaymentBlock({
         )}
       </div>
       <p className="text-sm">
-        Pay <strong>{formatEuros(amountCents)}</strong> via Tikkie and put
-        your name (<strong>{copyPayload}</strong>) in the description so the
+        Pay <strong>{formatEuros(amountCents)}</strong> via {providerLabel} and
+        put your name (<strong>{copyPayload}</strong>) in the description so the
         admin can match it.
       </p>
       {isUnpaid && paymentDueAt && (
@@ -105,8 +109,8 @@ export function PaymentBlock({
       )}
       <div className="flex flex-wrap gap-2">
         <Button asChild>
-          <a href={tikkieUrl} target="_blank" rel="noreferrer">
-            Open Tikkie
+          <a href={payUrl} target="_blank" rel="noreferrer">
+            Open {providerLabel}
           </a>
         </Button>
         <Button variant="outline" onClick={copyName}>
@@ -119,8 +123,9 @@ export function PaymentBlock({
         )}
       </div>
       <p className="text-xs text-muted-foreground">
-        Please make sure that the Tikkie link is paid. If your paid status
-        does not match your payment, the admin can reject your attendance.
+        Please make sure that the {providerLabel} link is paid. If your paid
+        status does not match your payment, the admin can reject your
+        attendance.
       </p>
     </div>
   );
