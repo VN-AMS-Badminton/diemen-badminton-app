@@ -39,6 +39,87 @@ The original design notes below are kept for context (some details superseded).
 
 ---
 
+## Staging Test Runbook
+
+End-to-end test of the bunq integration on staging (`dev.vn-ams-badminton.com`)
+using the bunq **sandbox**. Deploy target is Cloudflare Workers.
+
+### Prerequisites
+- Branch deployed to staging, and staging rebuilt after the latest push.
+- Migration `0024_attendance_bunq_payment_id_unique.sql` applied to **staging's**
+  Supabase DB.
+- bunq sandbox access (the setup script can mint a sandbox user).
+
+### 1. Confirm the webhook route is reachable (not behind the login gate)
+```bash
+curl -i -X POST https://dev.vn-ams-badminton.com/api/webhooks/bunq/bogus -d '{}'
+# expect HTTP 401 — NOT 307 → /?next=… (307 means the build predates the
+# /api/webhooks middleware allowlist; redeploy).
+```
+
+### 2. Register the sandbox callback → staging
+```bash
+pnpm bunq:setup --sandbox --create-sandbox-user --register-callback \
+  --webhook-url https://dev.vn-ams-badminton.com
+```
+Creates a sandbox user + API key, runs the handshake, registers the MUTATION
+callback, and prints `BUNQ_WEBHOOK_SECRET` + `BUNQ_SERVER_PUBLIC_KEY`.
+
+### 3. Set staging Worker secrets
+Dashboard (Workers & Pages → Worker → Settings → Variables and Secrets) or
+`npx wrangler secret put`:
+
+| Name | Value |
+|---|---|
+| `BUNQ_WEBHOOK_SECRET` | printed value |
+| `BUNQ_SERVER_PUBLIC_KEY` | printed base64 |
+| `BUNQ_DEFAULT_URL` | a bunq.me / test link |
+| `PAYMENT_PROVIDER` | `bunq` |
+| `BUNQ_DEBUG` | `1` (logs raw callback + parsed payment; remove after) |
+
+### 4. Seed test data on staging (easy to forget)
+The webhook matches against the **nearest upcoming scheduled session**. Create:
+- a scheduled session in the near future, and
+- a **drop-in** attendance row for a known player, status `unpaid`, whose season
+  `drop_in_fee_per_session_cents` equals the amount you will pay.
+
+Note the player's **username** and the **drop-in fee** (cents).
+
+### 5. Trigger an incoming sandbox payment
+Send money INTO the sandbox account with **description = player username** and
+**amount = drop-in fee**. In sandbox, generate income via Sugar Daddy
+(`sugardaddy@bunq.com`) fulfilling a `request-inquiry`, or a second sandbox user.
+The request description is what the matcher reads.
+
+### 6. Verify
+```bash
+npx wrangler tail        # watch staging logs
+```
+Expect (from `BUNQ_DEBUG`): `raw callback body:` → `parsed payment:` → outcome
+`confirmed`. Then on **admin → reconciliation**: the player's row shows
+`paid via bunq <id>` + an `audit_log` row (action `bunq_confirmed`).
+
+Other outcomes and what they mean: `unclear` (name/amount didn't match —
+check seed data + amount), `subscription_manual` (amount equals the season
+total, left for admin), `duplicate` (same payment id already processed),
+`no_session` (no upcoming scheduled session).
+
+### 7. Tear down
+Set `PAYMENT_PROVIDER=tikkie` and remove `BUNQ_DEBUG`.
+
+### Caveats
+- **Shared secrets:** if `dev.vn-ams-badminton.com` is the *same* Worker as prod
+  (not a separate env), these secrets are shared with production. Safe only
+  because prod serves the last *deployed* version, not the branch. Confirm.
+- **Cloudflare WAF:** if Bot Fight Mode / WAF is on for `dev.`, add a skip rule
+  for `/api/webhooks/*` so bunq's server-to-server POST isn't challenged.
+- **Signature path:** once `BUNQ_SERVER_PUBLIC_KEY` is set, a real bunq callback
+  must pass `X-Bunq-Server-Signature` verification; a 401 "Bad signature" means
+  the stored key doesn't match the sandbox installation that registered the
+  callback (re-run step 2, set the freshly printed key).
+
+---
+
 ## When to Build This
 
 Trigger any one of:
