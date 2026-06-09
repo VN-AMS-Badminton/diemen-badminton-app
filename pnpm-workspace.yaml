@@ -1,0 +1,21 @@
+allowBuilds:
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
+  workerd: true
+minimumReleaseAgeExclude:
+  - '@cloudflare/workerd-darwin-64@1.20260609.1'
+  - '@cloudflare/workerd-darwin-arm64@1.20260609.1'
+  - '@cloudflare/workerd-linux-64@1.20260609.1'
+  - '@cloudflare/workerd-linux-arm64@1.20260609.1'
+  - '@cloudflare/workerd-windows-64@1.20260609.1'
+  - '@supabase/auth-js@2.108.1'
+  - '@supabase/functions-js@2.108.1'
+  - '@supabase/postgrest-js@2.108.1'
+  - '@supabase/realtime-js@2.108.1'
+  - '@supabase/ssr@0.12.0'
+  - '@supabase/storage-js@2.108.1'
+  - '@supabase/supabase-js@2.108.1'
+  - miniflare@4.20260609.0
+  - workerd@1.20260609.1
+  - wrangler@4.99.0
