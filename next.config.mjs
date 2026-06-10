@@ -1,7 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Emits .next/standalone with a self-contained Node server for Docker.
-  output: "standalone",
   productionBrowserSourceMaps: false,
   serverExternalPackages: ["bcryptjs"],
   async headers() {

@@ -6,7 +6,7 @@ Mobile-friendly web app for managing a 30+ player Dutch badminton club.
 - Weekly RSVP (subscribers opt out, drop-ins opt in)
 - Honor-system payment tracking via personal Tikkie
 
-Stack: Next.js 15 (App Router, TS) + Supabase (Postgres + RLS) + Tailwind + shadcn/ui, deployed on Cloudflare Workers (OpenNext).
+Stack: Next.js 15 (App Router, TS) + Supabase (Postgres + RLS) + Tailwind + shadcn/ui, deployed on Cloudflare Workers.
 
 ## Local Development
 
@@ -79,14 +79,18 @@ Open http://localhost:3000.
 ## Production Deployment
 
 Deployed to **Cloudflare Workers** via OpenNext (`@opennextjs/cloudflare`); config
-in `wrangler.jsonc` (custom domain `vn-ams-badminton.com`). Runtime env is set as
-Worker vars/secrets (`wrangler secret put …` or the Cloudflare dashboard);
+in `wrangler.jsonc` (prod domain `vn-ams-badminton.com`, staging `dev.vn-ams-badminton.com`).
+Runtime env is set as Worker vars/secrets per environment (`wrangler secret put … --env prd`);
 `NEXT_PUBLIC_*` are inlined at build time.
 
+```bash
+pnpm cf:build          # opennextjs-cloudflare build
+pnpm cf:deploy:prd     # wrangler deploy --env prd
+pnpm cf:deploy:dev     # wrangler deploy --env dev
+```
+
 See `docs/deployment-guide.md` for the full Cloudflare Workers setup and
-`docs/soft-launch-playbook.md` for rollout strategy. (Note: `fly.toml`,
-`Dockerfile`, and `.github/workflows/fly-deploy.yml` are stale Fly.io leftovers —
-the live target is Cloudflare Workers.)
+`docs/soft-launch-playbook.md` for rollout strategy.
 
 ## Project Structure
 
