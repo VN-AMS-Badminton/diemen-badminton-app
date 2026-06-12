@@ -24,8 +24,6 @@ export interface PlayerRow {
   referred_by: string | null;
   // Flipped true when a referred player consumes their one free session.
   free_trial_used: boolean;
-  // Permanent opaque referral code. Null for non-active members and guests.
-  referral_code: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -71,6 +69,8 @@ export interface SessionRow {
   end_at: string | null;
   // Set when resolve_session_cutoff has run; idempotency marker.
   cutoff_resolved_at: string | null;
+  // Max number of in-app trial guest slots per session. Default 4, admin-editable.
+  trial_quota: number;
   created_at: string;
   updated_at: string;
 }

@@ -25,6 +25,7 @@ const PatchSchema = z.object({
     .optional(),
   location: z.string().trim().min(1, "Location is required").max(200).optional(),
   capacity: z.number().int().min(1).max(200).optional(),
+  trial_quota: z.number().int().min(0).max(50).optional(),
   tikkie_url: z.string().url().or(z.literal("")).nullable().optional(),
   status: z.enum(["scheduled", "cancelled", "done"]).optional(),
 });
@@ -78,6 +79,21 @@ export async function PATCH(
 
   if (parsed.data.location !== undefined) patch.location = parsed.data.location;
   if (parsed.data.capacity !== undefined) patch.capacity = parsed.data.capacity;
+  if (parsed.data.trial_quota !== undefined) {
+    const { count: trialInvited } = await sb
+      .from("attendance")
+      .select("id", { count: "exact", head: true })
+      .eq("session_id", id)
+      .eq("source", "referral")
+      .eq("rsvp_status", "in");
+    if (parsed.data.trial_quota < (trialInvited ?? 0)) {
+      return NextResponse.json(
+        { error: `Trial slots cannot be set below ${trialInvited} — that many guests are already invited` },
+        { status: 400 },
+      );
+    }
+    patch.trial_quota = parsed.data.trial_quota;
+  }
   if (parsed.data.tikkie_url !== undefined) {
     patch.tikkie_url = parsed.data.tikkie_url === "" ? null : parsed.data.tikkie_url;
   }

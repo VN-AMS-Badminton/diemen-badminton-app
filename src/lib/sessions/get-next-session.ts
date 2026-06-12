@@ -17,6 +17,8 @@ export interface NextSessionData {
   confirmedInCount: number;
   /** Total scheduled sessions in the season — used to compute subscription fee total. */
   seasonSessionCount: number;
+  /** Count of referral attendance rows with rsvp_status=in for this session. */
+  trialUsed: number;
 }
 
 // Returns the next scheduled session and the player's relationship to it.
@@ -40,7 +42,7 @@ export async function getNextSession(
   // Auto-drop unpaid drop-ins whose 36h window has expired.
   await resolvePaymentDeadlines(session.id);
 
-  const [seasonRes, attRes, countRes, seasonSessionsRes] = await Promise.all([
+  const [seasonRes, attRes, countRes, seasonSessionsRes, trialCountRes] = await Promise.all([
     sb.from("seasons").select("*").eq("id", session.season_id).maybeSingle(),
     sb
       .from("attendance")
@@ -59,6 +61,12 @@ export async function getNextSession(
       .select("id")
       .eq("season_id", session.season_id)
       .eq("status", "scheduled"),
+    sb
+      .from("attendance")
+      .select("id", { count: "exact", head: true })
+      .eq("session_id", session.id)
+      .eq("source", "referral")
+      .eq("rsvp_status", "in"),
   ]);
 
   if (!seasonRes.data) return null;
@@ -86,5 +94,6 @@ export async function getNextSession(
     isSeasonSubscriber,
     confirmedInCount: countRes.count ?? 0,
     seasonSessionCount: seasonSessionIds.length || 1,
+    trialUsed: trialCountRes.count ?? 0,
   };
 }

@@ -9,7 +9,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PaymentRowActions } from "@/components/admin/payment-row-actions";
 import { SessionTikkieUrlForm } from "@/components/admin/session-tikkie-url-form";
 import { SessionEditForm } from "@/components/admin/session-edit-form";
-import { RefundSlotButton } from "@/components/admin/refund-slot-button";
 import { resolveCutoffIfDue } from "@/lib/sessions/resolve-cutoff";
 import { resolvePaymentDeadlines } from "@/lib/sessions/resolve-payment-deadlines";
 import { formatDate, formatTime, playerLabel } from "@/lib/format";
@@ -98,6 +97,10 @@ export default async function AdminSessionDetail({ params }: Props) {
   const unpaid = attendeeRows.filter(
     (r) => r.rsvp_status === "in" && r.payment_status === "unpaid",
   ).length;
+  const trialGuestRows = attendeeRows.filter((r) => r.source === "referral");
+  const trialGuestCount = trialGuestRows.filter(
+    (r) => r.rsvp_status === "in" && r.bumped_at === null,
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -125,6 +128,7 @@ export default async function AdminSessionDetail({ params }: Props) {
           {waitlistRows.length > 0
             ? ` · ${waitlistRows.length} waitlisted`
             : ""}
+          {` · ${trialGuestCount}/${sess.trial_quota} trial`}
         </p>
       </div>
 
@@ -139,8 +143,10 @@ export default async function AdminSessionDetail({ params }: Props) {
               start_at: sess.start_at,
               location: sess.location,
               capacity: sess.capacity,
+              trial_quota: sess.trial_quota,
               status: sess.status as SessionStatus,
             }}
+            trialUsed={trialGuestCount}
           />
         </CardContent>
       </Card>
@@ -247,20 +253,12 @@ export default async function AdminSessionDetail({ params }: Props) {
                           <Badge variant="destructive">bumped</Badge>
                         )}
                       </div>
-                      {(r.rsvp_status === "in" ||
-                        (isReferralGuest &&
-                          (isBumped || r.rsvp_status === "cancelled"))) && (
+                      {r.rsvp_status === "in" && (
                         <div className="flex flex-wrap justify-end gap-2 pt-1">
-                          {r.rsvp_status === "in" && (
-                            <PaymentRowActions
-                              attendanceId={r.id}
-                              isFlagged={r.payment_status === "flagged"}
-                            />
-                          )}
-                          {isReferralGuest &&
-                            (isBumped || r.rsvp_status === "cancelled") && (
-                              <RefundSlotButton attendanceId={r.id} />
-                            )}
+                          <PaymentRowActions
+                            attendanceId={r.id}
+                            isFlagged={r.payment_status === "flagged"}
+                          />
                         </div>
                       )}
                     </div>
@@ -319,9 +317,7 @@ export default async function AdminSessionDetail({ params }: Props) {
                                       : "secondary"
                                 }
                               >
-                                {r.source === "subscription"
-                                  ? "sub"
-                                  : r.source}
+                                {r.source === "subscription" ? "sub" : r.source}
                               </Badge>
                               {r.is_tentative && !isBumped && (
                                 <Badge variant="warning">tentative</Badge>
@@ -369,11 +365,6 @@ export default async function AdminSessionDetail({ params }: Props) {
                                   isFlagged={r.payment_status === "flagged"}
                                 />
                               )}
-                              {isReferralGuest &&
-                                (isBumped ||
-                                  r.rsvp_status === "cancelled") && (
-                                  <RefundSlotButton attendanceId={r.id} />
-                                )}
                             </div>
                           </TD>
                         </TR>
@@ -421,6 +412,59 @@ export default async function AdminSessionDetail({ params }: Props) {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            Trial guests · {trialGuestCount}/{sess.trial_quota}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {trialGuestRows.length === 0 ? (
+            <EmptyState title="No trial guests for this session" />
+          ) : (
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Guest</TH>
+                  <TH>Phone</TH>
+                  <TH>Invited by</TH>
+                  <TH>Status</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {trialGuestRows.map((r) => {
+                  const referrerName = r.players?.referred_by
+                    ? referrerById.get(r.players.referred_by)
+                    : null;
+                  return (
+                    <TR key={r.id}>
+                      <TD>
+                        <div className="font-medium">
+                          {r.players?.display_name ?? r.players?.username ?? "—"}
+                        </div>
+                      </TD>
+                      <TD className="text-xs text-muted-foreground">
+                        {r.players?.whatsapp_number ?? "—"}
+                      </TD>
+                      <TD className="text-sm">
+                        {referrerName ?? <span className="text-muted-foreground">—</span>}
+                      </TD>
+                      <TD>
+                        <Badge
+                          variant={r.rsvp_status === "in" ? "success" : "secondary"}
+                        >
+                          {r.rsvp_status}
+                        </Badge>
+                      </TD>
+                    </TR>
+                  );
+                })}
+              </TBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

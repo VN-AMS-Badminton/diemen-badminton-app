@@ -15,7 +15,6 @@ export interface MyReferralRow {
   sessionStartAt: string;
   sessionLocation: string;
   status: ReferralRowStatus;
-  capConsumed: boolean;
   createdAt: string;
 }
 
@@ -46,14 +45,13 @@ export async function listMyReferrals(
     rsvp_status: string;
     is_tentative: boolean;
     bumped_at: string | null;
-    cap_consumed: boolean;
     created_at: string;
     sessions: { start_at: string; location: string } | null;
   };
   const { data } = await sb
     .from("attendance")
     .select(
-      "id, player_id, session_id, rsvp_status, is_tentative, bumped_at, cap_consumed, created_at, sessions:session_id(start_at, location)",
+      "id, player_id, session_id, rsvp_status, is_tentative, bumped_at, created_at, sessions:session_id(start_at, location)",
     )
     .eq("source", "referral")
     .in("player_id", guestIds)
@@ -75,7 +73,6 @@ export async function listMyReferrals(
       rsvpStatus: r.rsvp_status,
       isTentative: r.is_tentative,
     }),
-    capConsumed: r.cap_consumed,
     createdAt: r.created_at,
   }));
 }

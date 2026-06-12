@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { RsvpAction } from "@/components/player/rsvp-actions";
 import { PassSlotDialog } from "@/components/player/pass-slot-dialog";
+import { InviteGuestDialog } from "@/components/player/invite-guest-dialog";
 import { PaymentBlock } from "@/components/player/payment-block";
 import { getPaymentContext } from "@/lib/sessions/get-payment-context";
 import { formatDate, formatTime, formatWeekday } from "@/lib/format";
@@ -35,9 +36,11 @@ export function NextSessionCard({
     );
   }
 
-  const { session, season, attendance, confirmedInCount, isSeasonSubscriber } =
+  const { session, season, attendance, confirmedInCount, isSeasonSubscriber, trialUsed } =
     data;
   const remaining = Math.max(0, session.capacity - confirmedInCount);
+  const trialRemaining = Math.max(0, session.trial_quota - trialUsed);
+  const sessionInFuture = new Date(session.start_at).getTime() > Date.now();
   const subscriberSlot = attendance?.source === "subscription";
   const isWaitlisted = attendance?.rsvp_status === "waitlisted";
   const time = formatTime(session.start_at);
@@ -231,6 +234,14 @@ export function NextSessionCard({
               variant="outline"
             />
           </>
+        )}
+
+        {/* Invite a guest — visible to any player when trial slots remain */}
+        {trialRemaining > 0 && sessionInFuture && (
+          <InviteGuestDialog
+            sessionId={session.id}
+            trialRemaining={trialRemaining}
+          />
         )}
       </CardContent>
     </Card>
