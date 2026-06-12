@@ -1,6 +1,6 @@
 # Plan: [Admin] Cancel a player's booking for a session or season
 
-Status: proposed · Branch: `feat/admin-cancel-booking` (stacked on `guest-trial` — develop after it; migration numbering continues from its `0025`)
+Status: proposed · Branch: `feat/admin-cancel-booking` (based on `main` incl. the guest-trial merge (#20); migration numbering continues from its `0025`)
 Context docs: [admin-flow.md](../admin-flow.md), [player-flow.md](../player-flow.md), [glossary.md](../glossary.md), [database-schema.md](../database-schema.md)
 
 ## Ticket
