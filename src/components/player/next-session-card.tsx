@@ -13,6 +13,7 @@ import { PassSlotDialog } from "@/components/player/pass-slot-dialog";
 import { InviteGuestDialog } from "@/components/player/invite-guest-dialog";
 import { PaymentBlock } from "@/components/player/payment-block";
 import { getPaymentContext } from "@/lib/sessions/get-payment-context";
+import { getActiveProvider, providerLabel } from "@/lib/payments/provider";
 import { formatDate, formatTime, formatWeekday } from "@/lib/format";
 import type { NextSessionData } from "@/lib/sessions/get-next-session";
 
@@ -44,6 +45,7 @@ export function NextSessionCard({
   const subscriberSlot = attendance?.source === "subscription";
   const isWaitlisted = attendance?.rsvp_status === "waitlisted";
   const time = formatTime(session.start_at);
+  const payLabel = providerLabel(getActiveProvider());
 
   return (
     <Card accent>
@@ -140,23 +142,27 @@ export function NextSessionCard({
           attendance.rsvp_status === "in" && (
             <>
               <Badge variant="success">RSVP&apos;d · drop-in</Badge>
-              <PaymentBlock
-                tikkieUrl={
-                  getPaymentContext({
-                    season,
-                    session,
-                    scope: "drop_in",
-                    username,
-                  }).tikkieUrl
-                }
-                amountCents={season.drop_in_fee_per_session_cents}
-                username={username}
-                displayName={displayName}
-                label="Drop-in payment"
-                attendanceId={attendance.id}
-                status={attendance.payment_status}
-                paymentDueAt={attendance.payment_due_at}
-              />
+              {(() => {
+                const pay = getPaymentContext({
+                  season,
+                  session,
+                  scope: "drop_in",
+                  username,
+                });
+                return (
+                  <PaymentBlock
+                    payUrl={pay.payUrl}
+                    providerLabel={pay.providerLabel}
+                    amountCents={season.drop_in_fee_per_session_cents}
+                    username={username}
+                    displayName={displayName}
+                    label="Drop-in payment"
+                    attendanceId={attendance.id}
+                    status={attendance.payment_status}
+                    paymentDueAt={attendance.payment_due_at}
+                  />
+                );
+              })()}
               <RsvpAction
                 sessionId={session.id}
                 action="drop_in_cancel"
@@ -165,7 +171,7 @@ export function NextSessionCard({
               />
               {attendance.payment_status === "unpaid" ? (
                 <p className="text-xs text-muted-foreground">
-                  Tap <strong>I paid</strong> after sending your Tikkie to
+                  Tap <strong>I paid</strong> after sending your {payLabel} to
                   unlock passing your slot.
                 </p>
               ) : (

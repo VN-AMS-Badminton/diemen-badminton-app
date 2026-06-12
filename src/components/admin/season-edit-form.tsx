@@ -220,12 +220,12 @@ export function SeasonEditForm({ season }: { season: Season }) {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="se-tk">Tikkie URL (optional override)</Label>
+          <Label htmlFor="se-tk">Payment link (optional override)</Label>
           <Input
             id="se-tk"
             value={tikkie}
             onChange={(e) => setTikkie(e.target.value)}
-            placeholder="https://tikkie.me/pay/..."
+            placeholder="https://tikkie.me/pay/... or https://bunq.me/..."
           />
         </div>
         <div className="space-y-2 sm:col-span-2">

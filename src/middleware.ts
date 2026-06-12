@@ -9,6 +9,9 @@ const PUBLIC_PATHS = [
   "/api/auth/login",
   "/api/auth/logout",
   "/api/refer/activate",
+  // Inbound webhooks authenticate themselves (URL secret + provider signature),
+  // not via a session cookie — they must bypass the session redirect gate.
+  "/api/webhooks",
 ];
 
 function isPublic(path: string): boolean {

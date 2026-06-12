@@ -30,6 +30,7 @@ export default async function ReconciliationPage() {
     id: string;
     source: AttendanceSource;
     payment_status: PaymentStatus;
+    bunq_payment_id: string | null;
     players: { username: string; whatsapp_number: string | null } | null;
   };
   let attRows: AttRow[] = [];
@@ -39,7 +40,7 @@ export default async function ReconciliationPage() {
     const { data } = await sb
       .from("attendance")
       .select(
-        "id, source, payment_status, players:player_id(username, whatsapp_number)",
+        "id, source, payment_status, bunq_payment_id, players:player_id(username, whatsapp_number)",
       )
       .eq("session_id", session.id)
       .eq("rsvp_status", "in")
@@ -113,6 +114,14 @@ export default async function ReconciliationPage() {
                         <TD>{SOURCE_LABEL[r.source] ?? r.source}</TD>
                         <TD>
                           <Badge variant={badgeVariant}>{badgeLabel}</Badge>
+                          {r.bunq_payment_id && (
+                            <div className="mt-1 text-[11px] text-muted-foreground">
+                              paid via bunq{" "}
+                              <span className="tabular-nums">
+                                {r.bunq_payment_id.slice(-6)}
+                              </span>
+                            </div>
+                          )}
                         </TD>
                         <TD>
                           <PaymentRowActions

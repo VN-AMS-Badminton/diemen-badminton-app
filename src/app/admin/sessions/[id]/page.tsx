@@ -153,7 +153,7 @@ export default async function AdminSessionDetail({ params }: Props) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Tikkie link</CardTitle>
+          <CardTitle>Payment link</CardTitle>
         </CardHeader>
         <CardContent>
           <SessionTikkieUrlForm

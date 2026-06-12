@@ -1,4 +1,5 @@
 import { createServerSupabase } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export async function writeAudit(
   actorId: string | null,
@@ -7,8 +8,11 @@ export async function writeAudit(
   entityId: string,
   before: unknown,
   after: unknown,
+  // Optional injected client (enables DI for unit tests); defaults to the
+  // service-role server client for normal request paths.
+  client?: SupabaseClient,
 ): Promise<void> {
-  const sb = createServerSupabase();
+  const sb = client ?? createServerSupabase();
   await sb.from("audit_log").insert({
     actor_id: actorId,
     action,
