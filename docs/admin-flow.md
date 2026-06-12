@@ -24,10 +24,10 @@ Seasons primary; Approvals, Invites, Reconciliation, Audit in overflow.
 | Flow | Where | Behaviour |
 |---|---|---|
 | View players / detail | `/admin/players`, `/admin/players/[id]` | Profile, attendance history. |
+| Edit player | `PATCH /api/admin/players/[id]` | Name / phone corrections. |
 | Block player | `POST /api/admin/players/[id]/block` | Sets `status = 'blocked'`. |
+| Delete player | `DELETE /api/admin/players/[id]` | Removes the player row (attendance cascades); used e.g. to clean up trial guests. |
 | Reset PIN | `POST /api/admin/players/[id]/reset-pin` | Issues a new login PIN. |
-| Reset free trial | `POST /api/admin/referrals/reset-trial` | Clears `free_trial_used` for a referral guest. |
-| Refund referrer slot | `POST /api/admin/referrals/refund-slot` | Returns a consumed referral cap slot after a guest's row is bumped/cancelled. |
 
 ## 3. Season lifecycle
 
@@ -43,7 +43,7 @@ Seasons primary; Approvals, Invites, Reconciliation, Audit in overflow.
 | Flow | Where | Behaviour |
 |---|---|---|
 | Batch-add sessions | `/admin/seasons/[id]` (poll seasons only) → `POST /api/admin/sessions` | Ad-hoc dates; auto-creates subscription attendance rows for existing subscribers. |
-| Edit session | `/admin/sessions/[id]` → `PATCH /api/admin/sessions/[id]` | Date, time, capacity, location, status — independent of the season template. |
+| Edit session | `/admin/sessions/[id]` → `PATCH /api/admin/sessions/[id]` | Date, time, capacity, location, status, trial quota (cannot go below already-invited guest count) — independent of the season template. |
 | Delete session | `DELETE /api/admin/sessions/[id]` | Cascade-removes attendance. |
 | Set Tikkie link | `/admin/sessions/[id]` | Per-session payment URL (falls back to season override, then env default). |
 | View participants | `/admin/sessions/[id]` | Attendees + waitlist, with source/RSVP/payment badges; cutoff + payment deadlines resolved before read. |

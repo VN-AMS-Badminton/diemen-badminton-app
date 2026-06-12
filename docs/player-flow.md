@@ -56,14 +56,15 @@ eligible player (`/api/me/rsvp/pass`, recipients from
 blocks re-RSVP); receiver gets a new `source = 'passed'`, `assumed_paid` row.
 Payment between players is settled privately.
 
-## 6. Referrals (bring a guest)
+## 6. Bring a guest (free trial)
+
+Members invite guests **in-app** — there is no public referral link.
 
 | Flow | Where | Behaviour |
 |---|---|---|
-| Share code | `/refer` (`/api/me/referrals`) | Every active member has a permanent referral code/link. |
-| Guest activates | `/refer/[code]` → `POST /api/refer/activate` | Guest picks an upcoming session, gets a free-trial booking (`source = 'referral'`, `is_tentative = true`). No login account needed. |
-| At cutoff | automatic | Guest is locked in (`free_trial_used = true`) or bumped if a waitlisted member needs the seat. |
-| Cancel tentative guest | referrer, via `/refer` | Possible while still tentative. |
+| Invite guest | Session card dialog → `POST /api/me/sessions/[id]/invite-guest` | Member enters guest name + phone. Atomic RPC (`invite_guest_trial`) checks session is scheduled/future, trial quota (`sessions.trial_quota`, default 4), and capacity, then creates a login-less guest account (`free_trial_used = true`) + `source = 'referral'`, `assumed_paid` booking. |
+| One trial per phone | enforced by DB | A phone number can claim exactly one free trial, ever (unique partial index). |
+| Revoke guest | session card → `DELETE /api/me/guests/[guestId]` | Referrer-only, before session start. Hard-deletes the guest account (booking cascades), freeing the phone for a fresh invite; waitlist promoted. |
 
 ## 7. What players can NOT do
 

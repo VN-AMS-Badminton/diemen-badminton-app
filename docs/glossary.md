@@ -22,7 +22,9 @@ subscription is a set of attendance rows).
 | **Subscription / subscriber** | Player opted into the season poll. One attendance row per season session with `source = 'subscription'`, `rsvp_status = 'in'`, `payment_status = 'assumed_paid'`. "Season subscription status" = the aggregate of these rows; there is no separate table (dropped in migration `0017`). |
 | **Drop-in** | Pay-per-session booking (`source = 'drop_in'`). Starts `unpaid` with a `payment_due_at` deadline (36h self-confirm clock); expired unpaid drop-ins are auto-cancelled. |
 | **Passed slot** | Receiver side of a slot pass: new row with `source = 'passed'`, `payment_status = 'assumed_paid'` (payment settled peer-to-peer). |
-| **Referral guest** | Guest invited via a member's permanent referral code (`source = 'referral'`). One free trial session, `is_tentative = true` until cutoff: then locked in (`free_trial_used`) or bumped (`bumped_at` set) in favour of a waitlisted member. |
+| **Referral guest (trial guest)** | Guest invited **in-app** by a member (name + phone, `POST /api/me/sessions/[id]/invite-guest` → `invite_guest_trial` RPC). Gets a login-less player account (`pin_hash = NULL`, `referred_by` set, `free_trial_used = true` immediately) and one `source = 'referral'`, `assumed_paid` attendance row. One free trial per phone number, ever (unique partial index). |
+| **Trial quota** | Per-session cap on trial guests (`sessions.trial_quota`, default 4, admin-editable). Live count: rows with `source = 'referral'` AND `rsvp_status = 'in'`. |
+| **Guest revoke** | The referrer deletes their guest before the session starts (`DELETE /api/me/guests/[guestId]`). Hard-deletes the guest player row (attendance cascades), freeing the phone number for a fresh invite; waitlist is promoted. |
 
 ## RSVP statuses (`attendance.rsvp_status`)
 
@@ -50,15 +52,14 @@ subscription is a set of attendance rows).
 |---|---|
 | **Seat accounting** | Seats taken = count of attendance rows with `rsvp_status = 'in'` AND `bumped_at IS NULL`. There is no stored counter — flipping a row to any other status immediately frees the seat. |
 | **Waitlist promotion** | When a seat frees, the oldest `waitlisted` row is promoted to `in` (`promoteWaitlist`); unpaid promotees get a fresh payment deadline. |
-| **Cutoff / resolver** | `resolve_session_cutoff(uuid)`: idempotent Postgres RPC run lazily before attendance reads/writes. Promotes waitlist, bumps tentative referral guests, cancels expired unpaid drop-ins, sets `cutoff_resolved_at`. |
+| **Cutoff / resolver** | `resolve_session_cutoff(uuid)`: idempotent Postgres RPC run lazily before attendance reads/writes. Promotes waitlist, cancels expired unpaid drop-ins, sets `cutoff_resolved_at`. (Also bumps `is_tentative` guests — legacy from the retired referral-code flow; in-app invited guests are never tentative.) |
 | **Slot pass** | Member permanently transfers their seat to an eligible player. Passer → `rsvp_status = 'passed'`; receiver gets a new `source = 'passed'` row. |
 
 ## People & access
 
 | Term | Meaning |
 |---|---|
-| **Player** | Any account (`players` table). Role `player` or `admin`. Status `pending` (awaiting approval) / `active` / `blocked`. |
+| **Player** | Any account (`players` table). Role `player` or `admin`. Status `pending` (awaiting approval) / `active` / `blocked`. Trial guests are also players — identified by `referred_by IS NOT NULL`, no PIN, created `active`. |
 | **Admin** | Role with access to `/admin/*` (middleware-gated) and `/api/admin/*` (`requireAdmin`). Manages seasons, sessions, payments, approvals, invites. |
-| **Invite** | Admin-issued registration code for new full members (code, expiry, max uses). Distinct from a referral. |
-| **Referral code** | Permanent opaque code every active member has; lets a guest claim one free trial session. |
+| **Invite** | Admin-issued registration code for new full members (code, expiry, max uses). Distinct from a guest invite. |
 | **Audit log** | Append-only `audit_log` table: actor, action, entity, before/after JSON. Written for admin mutations and system actions (e.g. waitlist promotion). |

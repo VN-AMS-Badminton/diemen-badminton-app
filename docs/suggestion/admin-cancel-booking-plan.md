@@ -1,6 +1,6 @@
 # Plan: [Admin] Cancel a player's booking for a session or season
 
-Status: proposed · Branch: `feat/admin-cancel-booking`
+Status: proposed · Branch: `feat/admin-cancel-booking` (stacked on `guest-trial` — develop after it; migration numbering continues from its `0025`)
 Context docs: [admin-flow.md](../admin-flow.md), [player-flow.md](../player-flow.md), [glossary.md](../glossary.md), [database-schema.md](../database-schema.md)
 
 ## Ticket
@@ -38,7 +38,9 @@ Facts that shape the design (all verified in code):
 
 ## Implementation steps
 
-### 1. Migration `0024_add_refund_pending_payment_status.sql`
+### 1. Migration `0026_add_refund_pending_payment_status.sql`
+
+(`0024`/`0025` are taken by the `guest-trial` branch.)
 
 ```sql
 alter type payment_status add value if not exists 'refund_pending';
@@ -132,11 +134,22 @@ Proxy-mock pattern from `pass-slot.test.ts`:
 
 ## Edge cases
 
-- **Bumped referral guest** (`in` + `bumped_at` set): holds no seat; cancel
-  allowed, promotion harmless (promoteWaitlist recounts from scratch).
-- **Referral guest cancel**: the existing `RefundSlotButton` already appears
-  for cancelled referral rows, so the referrer's consumed cap slot can be
-  refunded right after — no new code.
+- **Trial guest rows (`source = 'referral'`, from guest-trial's in-app
+  invites)**: flipping one to `cancelled` frees both the seat AND a trial
+  slot automatically — `trial_quota` usage is a live count of
+  `source='referral' AND rsvp_status='in'` rows. But it leaves the guest
+  player row behind with `free_trial_used = true`, permanently consuming
+  that phone number's one trial. Recommendation: for guest rows, admin
+  cancel should instead mirror the referrer revoke
+  (`DELETE /api/me/guests/[guestId]` semantics: delete guest player,
+  attendance cascades, phone freed) — branch inside `cancelBooking` or
+  reject guest rows with a hint to use player deletion
+  (`DELETE /api/admin/players/[id]`, already on guest-trial). Decide in
+  review (unresolved Q5).
+- **Legacy tentative guests** (`is_tentative`/`bumped_at` from the retired
+  referral-code flow): bumped rows hold no seat; cancel allowed, promotion
+  harmless (promoteWaitlist recounts from scratch). New in-app guests are
+  never tentative.
 - **Race with concurrent player RSVP**: same exposure as existing cancel
   paths; promoteWaitlist recount keeps capacity consistent. Acceptable at
   club scale.
@@ -168,3 +181,6 @@ Proxy-mock pattern from `pass-slot.test.ts`:
 4. **Season-cancel scope** — plan cancels only *future scheduled* sessions and
    leaves past/done rows for payment history. Confirm that matches refund
    expectations (refund only future sessions).
+5. **Trial guest rows** — generic cancel (keeps guest account, phone stays
+   consumed) vs guest-player deletion (frees phone, like referrer revoke)?
+   Plan recommends deletion semantics for `source = 'referral'` rows.
