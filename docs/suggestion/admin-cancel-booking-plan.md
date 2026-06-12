@@ -1,6 +1,11 @@
 # Plan: [Admin] Cancel a player's booking for a session or season
 
-Status: proposed · Branch: `feat/admin-cancel-booking` (based on `main` incl. the guest-trial merge (#20); migration numbering continues from its `0025`)
+Status: **implemented** on this branch · Branch: `feat/admin-cancel-booking` (based on `main` incl. the guest-trial merge (#20); migration numbering continues from its `0025`)
+
+> Decisions taken during implementation: `refund_pending` enum value (Q2 ✓),
+> trial guest rows are deleted like the referrer revoke (Q5 ✓), no push
+> notification (Q3 ✓), season cancel touches future sessions only (Q4 ✓).
+> Ticket A (Q1) remains separate — player routes untouched.
 Context docs: [admin-flow.md](../admin-flow.md), [player-flow.md](../player-flow.md), [glossary.md](../glossary.md), [database-schema.md](../database-schema.md)
 
 ## Ticket

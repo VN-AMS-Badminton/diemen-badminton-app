@@ -45,6 +45,7 @@ subscription is a set of attendance rows).
 | `assumed_paid` | Default. Player is trusted to have paid / will pay. |
 | `unpaid` | Drop-in that hasn't self-confirmed payment yet; subject to `payment_due_at` auto-cancel. |
 | `flagged` | Admin marked the row as a payment anomaly (e.g. no-show without paying). Toggled on the reconciliation/session screens. |
+| `refund_pending` | Player had (assumed) paid when an admin cancelled their booking. The refund settles personally outside the app; admin clears the marker ("Refund settled") once done. |
 
 ## Capacity & lifecycle
 

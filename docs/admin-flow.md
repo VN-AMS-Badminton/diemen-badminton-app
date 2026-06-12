@@ -55,23 +55,22 @@ Seasons primary; Approvals, Invites, Reconciliation, Audit in overflow.
 | Flag / unflag payment | `/admin/reconciliation`, `/admin/sessions/[id]` → `POST /api/admin/payment/flag` | Toggles `assumed_paid` ↔ `flagged` per attendance row. Trust-first: flag only exceptions. |
 | Reconciliation view | `/admin/reconciliation` | Next upcoming session's confirmed rows grouped by source. |
 
-## 6. Cancel a player's booking (planned)
+## 6. Cancel a player's booking
 
-> Planned — see [suggestion/admin-cancel-booking-plan.md](./suggestion/admin-cancel-booking-plan.md).
+Admin-only cancellation on behalf of a player (design:
+[suggestion/admin-cancel-booking-plan.md](./suggestion/admin-cancel-booking-plan.md)):
 
-Admin-only cancellation on behalf of a player:
+| Flow | Where | Behaviour |
+|---|---|---|
+| Cancel session booking | `/admin/sessions/[id]` (attendee + waitlist rows) → `POST /api/admin/bookings/cancel` | Row → `rsvp_status = 'cancelled'`; seat frees immediately (seat accounting is live) and the waitlist is promoted. Only for future `scheduled` sessions. |
+| Cancel season subscription | `/admin/seasons/[id]` (subscriber rows) → `POST /api/admin/seasons/[id]/cancel-subscription` | Cancels the player's subscription rows in all *future scheduled* sessions; past/played sessions untouched. |
+| Refund marker | automatic | Paid (`assumed_paid`) rows move to `refund_pending`; the refund settles personally outside the app. "Refund settled" (same endpoint as flag toggle) clears it back to `assumed_paid`. |
+| Trial guests | same cancel button | Guest rows are deleted (account + booking, like the referrer revoke), freeing the phone's one-trial budget and a trial slot. |
 
-- **Per session:** "Cancel booking" on each row of the session participant
-  list. Row → `rsvp_status = 'cancelled'`; seat frees immediately (seat
-  accounting is live) and the waitlist is promoted.
-- **Per season:** "Cancel subscription" on each row of the season subscriber
-  list. Cancels the player's subscription rows in all *future scheduled*
-  sessions of the season.
-- Paid (`assumed_paid`) rows move to a refund-pending payment state; admin
-  settles refunds out-of-band.
-- Every cancellation is audit-logged with actor, target player,
-  session/season, timestamp, and optional reason.
-- Players cannot cancel their own paid bookings — admin-only by design.
+Every cancellation is audit-logged (`admin_cancel_booking`,
+`admin_cancel_season_subscription`) with actor, target player,
+session/season, timestamp, and optional reason. Players cannot cancel their
+own paid bookings — admin-only by design.
 
 ## 7. Audit
 

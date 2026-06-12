@@ -7,13 +7,16 @@ import type { PaymentStatus } from "@/lib/db/types";
 
 // Trust-first reconciliation: every row defaults to 'assumed_paid'. Admin
 // toggles 'flagged' as the exception. The same endpoint flips the state both
-// directions.
+// directions, and clears 'refund_pending' (admin-cancelled paid booking)
+// back to 'assumed_paid' once the refund is settled personally.
 export function PaymentRowActions({
   attendanceId,
   isFlagged,
+  isRefundPending = false,
 }: {
   attendanceId: string;
   isFlagged: boolean;
+  isRefundPending?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
@@ -37,7 +40,11 @@ export function PaymentRowActions({
         onClick={toggle}
         disabled={pending}
       >
-        {isFlagged ? "Unflag" : "Flag as unpaid"}
+        {isRefundPending
+          ? "Refund settled"
+          : isFlagged
+            ? "Unflag"
+            : "Flag as unpaid"}
       </Button>
     </div>
   );

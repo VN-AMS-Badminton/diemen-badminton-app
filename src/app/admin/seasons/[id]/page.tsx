@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SessionBatchCreateForm } from "@/components/admin/session-batch-create-form";
 import { SessionDeleteButton } from "@/components/admin/session-delete-button";
 import { CloseSeasonButton } from "@/components/admin/close-season-button";
+import { CancelSubscriptionButton } from "@/components/admin/cancel-subscription-button";
 import { SeasonEditForm } from "@/components/admin/season-edit-form";
 import { listSeasonSubscribers } from "@/lib/seasons/list-season-subscribers";
 import { formatDate, formatDateTime, formatTime, playerLabel } from "@/lib/format";
@@ -115,6 +116,7 @@ export default async function SeasonDetailPage({ params }: Props) {
                   <TH>Player</TH>
                   <TH>Payment</TH>
                   <TH>When</TH>
+                  <TH className="text-right">Actions</TH>
                 </TR>
               </THead>
               <TBody>
@@ -147,6 +149,20 @@ export default async function SeasonDetailPage({ params }: Props) {
                         )}
                       </TD>
                       <TD>{formatDateTime(s.firstSubscribedAt)}</TD>
+                      <TD className="text-right">
+                        {s.upcomingActiveCount > 0 ? (
+                          <CancelSubscriptionButton
+                            seasonId={season.id}
+                            playerId={s.player_id}
+                            playerName={playerLabel(s)}
+                            upcomingCount={s.upcomingActiveCount}
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            no upcoming sessions
+                          </span>
+                        )}
+                      </TD>
                     </TR>
                   );
                 })}

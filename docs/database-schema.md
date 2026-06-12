@@ -128,7 +128,7 @@ erDiagram
 | `session_status` | `scheduled`, `done`, `cancelled` |
 | `attendance_source` | `subscription`, `drop_in`, `passed`, `referral` |
 | `rsvp_status` | `in`, `opted_out`, `cancelled`, `waitlisted`, `passed` |
-| `payment_status` | `assumed_paid`, `flagged`, `unpaid` |
+| `payment_status` | `assumed_paid`, `flagged`, `unpaid`, `refund_pending` |
 
 ## Key Design Notes
 
@@ -136,6 +136,7 @@ erDiagram
 - **`rsvp_status` semantics.** `in` = confirmed; `opted_out` = self opted out this session (reversible); `waitlisted` = waiting for a freed seat (reversible); `cancelled` = generic cancel (drop-in left, left waitlist — reversible); `passed` = permanently gave slot to another player (irreversible).
 - **Subscriptions are attendance rows.** The separate `subscriptions` table was dropped (migration `0017`). A subscriber is simply an `attendance` row with `source = 'subscription'` and an `rsvp_status` of `in`.
 - **Trust-first payments.** `payment_status` defaults to `assumed_paid`; admin only flags anomalies. Drop-ins get a `payment_due_at` deadline; unpaid rows are auto-cancelled by `resolve_session_cutoff`.
+- **Admin cancellation & refunds.** Only admins cancel committed bookings (single session or whole season subscription); cancelled `assumed_paid` rows get `payment_status = 'refund_pending'` (migration `0026`). The refund settles personally outside the app — admin clears the marker back to `assumed_paid` once done. Trial guest rows are deleted (guest account removal) instead of cancelled, freeing the phone's one-trial budget. All cancellations are audit-logged with an optional reason.
 - **Referral system.** Active members have a permanent `referral_code`. There are two invite paths: (1) **referral link** — guest follows the member's link, picks a session, gets `is_tentative = true`; at cutoff they are locked in (`free_trial_used = true`) or bumped for a waitlisted member. (2) **in-app invite** — member submits guest name + phone via the dashboard; guest is locked in immediately (`is_tentative = false`, `free_trial_used = true`). Both paths set `source = 'referral'`. Each session has a `trial_quota` (default 4) capping the total in-app trial slots. One free trial per `whatsapp_number` is enforced by a partial unique index (`WHERE free_trial_used = true`).
 - **Cutoff resolver.** `resolve_session_cutoff(uuid)` is an idempotent Postgres RPC called lazily before any attendance read/write. It promotes waitlisted players, bumps tentative referral guests, and sets `cutoff_resolved_at`.
 - **RLS is deny-all.** All tables have RLS enabled but no permissive policies. Only the `service_role` key (used server-side) can read/write. The browser client cannot access any data directly.

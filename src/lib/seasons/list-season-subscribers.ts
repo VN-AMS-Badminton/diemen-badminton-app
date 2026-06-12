@@ -14,12 +14,16 @@ export interface SubscriberSummary {
   paidCount: number;
   flaggedCount: number;
   unpaidCount: number;
+  // Still-active (in/opted_out) rows in future scheduled sessions — what an
+  // admin season-subscription cancel would affect.
+  upcomingActiveCount: number;
   firstSubscribedAt: string;
 }
 
 interface Row {
   player_id: string;
-  payment_status: "assumed_paid" | "flagged" | "unpaid";
+  session_id: string;
+  payment_status: "assumed_paid" | "flagged" | "unpaid" | "refund_pending";
   rsvp_status: string;
   created_at: string;
   players: {
@@ -35,15 +39,24 @@ export async function listSeasonSubscribers(
 ): Promise<SubscriberSummary[]> {
   const { data: sessions } = await sb
     .from("sessions")
-    .select("id")
+    .select("id, status, start_at")
     .eq("season_id", seasonId);
-  const sessionIds = (sessions ?? []).map((s: { id: string }) => s.id);
+  type SessionInfo = { id: string; status: string; start_at: string };
+  const sessionRows = (sessions ?? []) as SessionInfo[];
+  const sessionIds = sessionRows.map((s) => s.id);
   if (sessionIds.length === 0) return [];
+
+  const nowIso = new Date().toISOString();
+  const upcomingIds = new Set(
+    sessionRows
+      .filter((s) => s.status === "scheduled" && s.start_at > nowIso)
+      .map((s) => s.id),
+  );
 
   const { data } = await sb
     .from("attendance")
     .select(
-      "player_id, payment_status, rsvp_status, created_at, players:player_id(username, display_name, whatsapp_number)",
+      "player_id, session_id, payment_status, rsvp_status, created_at, players:player_id(username, display_name, whatsapp_number)",
     )
     .eq("source", "subscription")
     .in("session_id", sessionIds);
@@ -63,6 +76,7 @@ export async function listSeasonSubscribers(
         paidCount: 0,
         flaggedCount: 0,
         unpaidCount: 0,
+        upcomingActiveCount: 0,
         firstSubscribedAt: r.created_at,
       };
       byPlayer.set(r.player_id, entry);
@@ -73,6 +87,12 @@ export async function listSeasonSubscribers(
     if (r.payment_status === "assumed_paid") entry.paidCount += 1;
     else if (r.payment_status === "flagged") entry.flaggedCount += 1;
     else if (r.payment_status === "unpaid") entry.unpaidCount += 1;
+    if (
+      upcomingIds.has(r.session_id) &&
+      (r.rsvp_status === "in" || r.rsvp_status === "opted_out")
+    ) {
+      entry.upcomingActiveCount += 1;
+    }
   }
 
   return Array.from(byPlayer.values()).sort((a, b) =>
