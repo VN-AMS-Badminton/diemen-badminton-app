@@ -6,7 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PaymentStatusBadge } from "@/components/ui/payment-status-badge";
 import { PaymentRowActions } from "@/components/admin/payment-row-actions";
+import { CancelBookingButton } from "@/components/admin/cancel-booking-button";
 import { SessionTikkieUrlForm } from "@/components/admin/session-tikkie-url-form";
 import { SessionEditForm } from "@/components/admin/session-edit-form";
 import { resolveCutoffIfDue } from "@/lib/sessions/resolve-cutoff";
@@ -101,6 +103,18 @@ export default async function AdminSessionDetail({ params }: Props) {
   const trialGuestCount = trialGuestRows.filter(
     (r) => r.rsvp_status === "in" && r.bumped_at === null,
   ).length;
+
+  // Admin can only cancel bookings of future scheduled sessions.
+  const cancellable =
+    sess.status === "scheduled" &&
+    new Date(sess.start_at).getTime() > Date.now();
+
+  const rowName = (r: R) =>
+    r.source === "referral" && r.players?.display_name
+      ? r.players.display_name
+      : r.players
+        ? playerLabel(r.players)
+        : "this player";
 
   return (
     <div className="space-y-6">
@@ -231,21 +245,7 @@ export default async function AdminSessionDetail({ params }: Props) {
                         >
                           {r.rsvp_status}
                         </Badge>
-                        <Badge
-                          variant={
-                            r.payment_status === "flagged"
-                              ? "destructive"
-                              : r.payment_status === "unpaid"
-                                ? "warning"
-                                : "success"
-                          }
-                        >
-                          {r.payment_status === "flagged"
-                            ? "flagged"
-                            : r.payment_status === "unpaid"
-                              ? "unpaid"
-                              : "assumed paid"}
-                        </Badge>
+                        <PaymentStatusBadge status={r.payment_status} />
                         {r.is_tentative && !isBumped && (
                           <Badge variant="warning">tentative</Badge>
                         )}
@@ -253,12 +253,28 @@ export default async function AdminSessionDetail({ params }: Props) {
                           <Badge variant="destructive">bumped</Badge>
                         )}
                       </div>
-                      {r.rsvp_status === "in" && (
+                      {(r.rsvp_status === "in" ||
+                        r.payment_status === "refund_pending") && (
                         <div className="flex flex-wrap justify-end gap-2 pt-1">
-                          <PaymentRowActions
-                            attendanceId={r.id}
-                            isFlagged={r.payment_status === "flagged"}
-                          />
+                          {r.rsvp_status === "in" ? (
+                            <PaymentRowActions
+                              attendanceId={r.id}
+                              isFlagged={r.payment_status === "flagged"}
+                            />
+                          ) : (
+                            <PaymentRowActions
+                              attendanceId={r.id}
+                              isFlagged={false}
+                              isRefundPending
+                            />
+                          )}
+                          {cancellable && r.rsvp_status === "in" && (
+                            <CancelBookingButton
+                              attendanceId={r.id}
+                              playerName={rowName(r)}
+                              isGuest={isReferralGuest}
+                            />
+                          )}
                         </div>
                       )}
                     </div>
@@ -341,21 +357,7 @@ export default async function AdminSessionDetail({ params }: Props) {
                             </Badge>
                           </TD>
                           <TD>
-                            <Badge
-                              variant={
-                                r.payment_status === "flagged"
-                                  ? "destructive"
-                                  : r.payment_status === "unpaid"
-                                    ? "warning"
-                                    : "success"
-                              }
-                            >
-                              {r.payment_status === "flagged"
-                                ? "flagged"
-                                : r.payment_status === "unpaid"
-                                  ? "unpaid"
-                                  : "assumed paid"}
-                            </Badge>
+                            <PaymentStatusBadge status={r.payment_status} />
                           </TD>
                           <TD>
                             <div className="flex flex-col items-end gap-1">
@@ -363,6 +365,20 @@ export default async function AdminSessionDetail({ params }: Props) {
                                 <PaymentRowActions
                                   attendanceId={r.id}
                                   isFlagged={r.payment_status === "flagged"}
+                                />
+                              )}
+                              {r.payment_status === "refund_pending" && (
+                                <PaymentRowActions
+                                  attendanceId={r.id}
+                                  isFlagged={false}
+                                  isRefundPending
+                                />
+                              )}
+                              {cancellable && r.rsvp_status === "in" && (
+                                <CancelBookingButton
+                                  attendanceId={r.id}
+                                  playerName={rowName(r)}
+                                  isGuest={isReferralGuest}
                                 />
                               )}
                             </div>
@@ -390,6 +406,7 @@ export default async function AdminSessionDetail({ params }: Props) {
                   <TH>#</TH>
                   <TH>Player</TH>
                   <TH>Joined</TH>
+                  {cancellable && <TH className="text-right">Actions</TH>}
                 </TR>
               </THead>
               <TBody>
@@ -405,6 +422,15 @@ export default async function AdminSessionDetail({ params }: Props) {
                     <TD className="text-xs text-muted-foreground">
                       {formatDate(r.created_at.slice(0, 10))}
                     </TD>
+                    {cancellable && (
+                      <TD className="text-right">
+                        <CancelBookingButton
+                          attendanceId={r.id}
+                          playerName={rowName(r)}
+                          isGuest={r.source === "referral"}
+                        />
+                      </TD>
+                    )}
                   </TR>
                 ))}
               </TBody>

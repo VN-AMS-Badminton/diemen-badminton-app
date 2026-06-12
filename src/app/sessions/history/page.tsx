@@ -5,7 +5,9 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PaymentStatusBadge } from "@/components/ui/payment-status-badge";
 import { formatDate } from "@/lib/format";
+import type { PaymentStatus } from "@/lib/db/types";
 
 export default async function HistoryPage() {
   const session = await requireSession();
@@ -96,21 +98,10 @@ export default async function HistoryPage() {
                     </Badge>
                   </TD>
                   <TD>
-                    <Badge
-                      variant={
-                        r.payment_status === "flagged"
-                          ? "destructive"
-                          : r.payment_status === "unpaid"
-                            ? "warning"
-                            : "success"
-                      }
-                    >
-                      {r.payment_status === "flagged"
-                        ? "flagged"
-                        : r.payment_status === "unpaid"
-                          ? "unpaid"
-                          : "paid"}
-                    </Badge>
+                    <PaymentStatusBadge
+                      status={r.payment_status as PaymentStatus}
+                      paidLabel="paid"
+                    />
                   </TD>
                 </TR>
               ))}

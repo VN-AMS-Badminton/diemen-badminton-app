@@ -7,6 +7,8 @@ import { writeAudit } from "@/lib/admin/audit";
 // Toggle the payment_status of an attendance row between 'assumed_paid' and
 // 'flagged'. Trust-first model: every row defaults to assumed_paid; admin uses
 // this endpoint to mark exceptions (unpaid no-shows, etc.).
+// Also clears 'refund_pending' (set by admin booking cancellation) back to
+// 'assumed_paid' once the admin has settled the refund personally.
 const schema = z.object({
   attendanceId: z.string().uuid(),
 });
@@ -28,8 +30,11 @@ export async function POST(req: Request) {
   if (!before)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  const isRefundSettle = before.payment_status === "refund_pending";
   const nextStatus =
-    before.payment_status === "flagged" ? "assumed_paid" : "flagged";
+    before.payment_status === "flagged" || isRefundSettle
+      ? "assumed_paid"
+      : "flagged";
 
   const { data: after, error } = await sb
     .from("attendance")
@@ -42,9 +47,11 @@ export async function POST(req: Request) {
 
   await writeAudit(
     session.sub,
-    nextStatus === "flagged"
-      ? "flag_attendance_payment"
-      : "unflag_attendance_payment",
+    isRefundSettle
+      ? "settle_refund_pending"
+      : nextStatus === "flagged"
+        ? "flag_attendance_payment"
+        : "unflag_attendance_payment",
     "attendance",
     after.id,
     before,

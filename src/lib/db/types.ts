@@ -8,7 +8,13 @@ export type SeasonStatus = "poll" | "closed";
 export type SessionStatus = "scheduled" | "done" | "cancelled";
 export type AttendanceSource = "subscription" | "drop_in" | "passed" | "referral";
 export type RsvpStatus = "in" | "opted_out" | "cancelled" | "waitlisted" | "passed";
-export type PaymentStatus = "assumed_paid" | "flagged" | "unpaid";
+// refund_pending: player had (assumed) paid when an admin cancelled their
+// booking; refund settles personally outside the app, admin clears the marker.
+export type PaymentStatus =
+  | "assumed_paid"
+  | "flagged"
+  | "unpaid"
+  | "refund_pending";
 
 export interface PlayerRow {
   id: string;
